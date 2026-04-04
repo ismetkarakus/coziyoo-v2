@@ -33,7 +33,7 @@ type SellerOrder = {
 };
 
 type SellerAction =
-  | { label: string; toStatus: "preparing" | "ready" | "in_delivery" | "approaching" | "at_door" | "delivered" | "completed"; tone: "preparing" | "ready" | "in_delivery" | "at_door" | "delivered" };
+  | { label: string; toStatus: "preparing" | "ready" | "in_delivery" | "approaching" | "at_door" | "delivered" | "completed"; tone: "preparing" | "ready" | "in_delivery" | "approaching" | "at_door" | "delivered" };
 
 type OrderGroupKey = "preparing" | "route" | "done";
 
@@ -169,7 +169,7 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
   if (!pickup && status === "ready") {
     return { label: "Yola Çıktı", toStatus: "in_delivery", tone: "in_delivery" };
   }
-  if (status === "in_delivery") return { label: "Yaklaştı", toStatus: "approaching", tone: "at_door" };
+  if (status === "in_delivery") return { label: "Yaklaştı", toStatus: "approaching", tone: "approaching" };
   if (status === "approaching") return { label: "Kapıda", toStatus: "at_door", tone: "at_door" };
   if (!pickup && status === "at_door") return null;
   return null;
@@ -180,7 +180,7 @@ function toneFromStatus(status: string, deliveryType?: string): SellerAction["to
   if (normalized === "preparing") return "preparing";
   if (normalized === "ready") return "ready";
   if (normalized === "in_delivery") return "in_delivery";
-  if (normalized === "approaching") return "at_door";
+  if (normalized === "approaching") return "approaching";
   if (normalized === "at_door") return "at_door";
   if (normalized === "delivered") return "delivered";
   return null;
@@ -762,9 +762,11 @@ export default function SellerHomeScreen({
                                       ? styles.cardActionBtnReady
                                     : resolvedTone === "in_delivery"
                                       ? styles.cardActionBtnInDelivery
-                                      : resolvedTone === "at_door"
-                                        ? styles.cardActionBtnDelivered
-                                        : styles.cardActionBtnCompleted,
+                                    : resolvedTone === "approaching"
+                                      ? styles.cardActionBtnApproaching
+                                    : resolvedTone === "at_door"
+                                      ? styles.cardActionBtnDelivered
+                                      : styles.cardActionBtnCompleted,
                                   isDoorStep && styles.cardActionBtnKapidaPulse,
                                   isUpdating && styles.cardActionBtnDisabled,
                                 ]}
@@ -1031,10 +1033,11 @@ const styles = StyleSheet.create({
     lineHeight: 48,
   },
   cardActionBtn: { flex: 1, borderRadius: 12, borderWidth: 1, paddingVertical: 13, alignItems: "center" },
-  cardActionBtnPreparing: { backgroundColor: "#B86A00", borderColor: "#B86A00" },
-  cardActionBtnReady: { backgroundColor: "#166534", borderColor: "#166534" },
+  cardActionBtnPreparing: { backgroundColor: "#B45309", borderColor: "#B45309" },
+  cardActionBtnReady: { backgroundColor: "#15803D", borderColor: "#15803D" },
   cardActionBtnInDelivery: { backgroundColor: "#1D4ED8", borderColor: "#1D4ED8" },
-  cardActionBtnDelivered: { backgroundColor: "#0F766E", borderColor: "#0F766E" },
+  cardActionBtnApproaching: { backgroundColor: "#0E7490", borderColor: "#0E7490" },
+  cardActionBtnDelivered: { backgroundColor: "#C2410C", borderColor: "#C2410C" },
   cardActionBtnCompleted: { backgroundColor: "#166534", borderColor: "#166534" },
   cardActionBtnKapidaPulse: { borderWidth: 2, borderColor: "#F97316" },
   cardActionBtnDisabled: { opacity: 0.6 },

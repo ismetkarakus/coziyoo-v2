@@ -23,7 +23,7 @@ const transitions: Record<OrderStatus, OrderStatus[]> = {
   paid: ["preparing", "cancelled"],
   preparing: ["ready", "in_delivery"],
   ready: ["in_delivery"],
-  in_delivery: ["at_door", "approaching"],
+  in_delivery: ["approaching"],
   approaching: ["at_door"],
   at_door: ["delivered", "completed"],
   delivered: ["completed"],
