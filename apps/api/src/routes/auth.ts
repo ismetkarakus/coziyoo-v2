@@ -68,6 +68,35 @@ const PASSWORD_RESET_CODE_TTL_MINUTES = 10;
 const PASSWORD_RESET_MIN_REQUEST_INTERVAL_SECONDS = 60;
 
 export const authRouter = Router();
+let nationalIdColumnAvailable: boolean | null = null;
+
+async function resolveNationalIdColumnAvailability(): Promise<boolean> {
+  if (nationalIdColumnAvailable !== null) return nationalIdColumnAvailable;
+
+  try {
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS national_id TEXT`);
+  } catch (error) {
+    console.warn("[auth] unable to auto-ensure users.national_id column", error);
+  }
+
+  try {
+    const result = await pool.query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'users'
+           AND column_name = 'national_id'
+       ) AS exists`
+    );
+    nationalIdColumnAvailable = Boolean(result.rows[0]?.exists);
+  } catch (error) {
+    console.error("[auth] national_id column availability check failed", error);
+    nationalIdColumnAvailable = false;
+  }
+
+  return nationalIdColumnAvailable;
+}
 
 function isValidIsoDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -768,6 +797,7 @@ authRouter.post("/forgot-password/confirm", abuseProtection({ flow: "forgot_pass
 
 authRouter.get("/me", requireAuth("app"), async (req, res) => {
   try {
+    const hasNationalIdColumn = await resolveNationalIdColumnAvailability();
     const result = await pool.query<{
       id: string;
       email: string;
@@ -782,7 +812,7 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
       dob: string | null;
       profile_image_url: string | null;
     }>(
-      `SELECT id, email, display_name, username, user_type, full_name, country_code, national_id, language, phone, dob, profile_image_url
+      `SELECT id, email, display_name, username, user_type, full_name, country_code, ${hasNationalIdColumn ? "national_id" : "NULL::text AS national_id"}, language, phone, dob, profile_image_url
        FROM users
        WHERE id = $1 AND is_active = TRUE`,
       [req.auth!.userId]
@@ -793,6 +823,9 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
     }
 
     const user = result.rows[0];
+    const legacyNationalId = /^\d{11}$/.test(String(user.country_code ?? "").trim())
+      ? String(user.country_code ?? "").trim()
+      : null;
     return res.json({
       data: {
         id: user.id,
@@ -802,7 +835,7 @@ authRouter.get("/me", requireAuth("app"), async (req, res) => {
         fullName: user.full_name,
         userType: user.user_type,
         countryCode: user.country_code,
-        nationalId: user.national_id,
+        nationalId: hasNationalIdColumn ? user.national_id : legacyNationalId,
         language: user.language,
         phone: user.phone,
         dob: user.dob,
@@ -894,6 +927,7 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
   }
 
   const fields = parsed.data;
+  const hasNationalIdColumn = await resolveNationalIdColumnAvailability();
   if (Object.keys(fields).length === 0) {
     return res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "No fields to update" } });
   }
@@ -922,13 +956,20 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
     setClauses.push(`full_name = $${idx++}`);
     values.push(fields.fullName);
   }
-  if (fields.countryCode !== undefined) {
+  const incomingNationalId = fields.nationalId?.trim();
+  const shouldFallbackNationalIdToCountryCode = !hasNationalIdColumn && incomingNationalId !== undefined;
+
+  if (fields.countryCode !== undefined && !shouldFallbackNationalIdToCountryCode) {
     setClauses.push(`country_code = $${idx++}`);
     values.push(fields.countryCode);
   }
-  if (fields.nationalId !== undefined) {
+  if (hasNationalIdColumn && incomingNationalId !== undefined) {
     setClauses.push(`national_id = $${idx++}`);
-    values.push(fields.nationalId);
+    values.push(incomingNationalId);
+  }
+  if (!hasNationalIdColumn && incomingNationalId !== undefined) {
+    setClauses.push(`country_code = $${idx++}`);
+    values.push(incomingNationalId);
   }
   if (fields.language !== undefined) {
     setClauses.push(`language = $${idx++}`);
@@ -974,7 +1015,7 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
       profile_image_url: string | null;
     }>(
       `UPDATE users SET ${setClauses.join(", ")} WHERE id = $${idx} AND is_active = TRUE
-       RETURNING id, email, display_name, username, user_type, full_name, country_code, national_id, language, phone, dob, profile_image_url`,
+       RETURNING id, email, display_name, username, user_type, full_name, country_code, ${hasNationalIdColumn ? "national_id" : "NULL::text AS national_id"}, language, phone, dob, profile_image_url`,
       values
     );
   } catch (error: any) {
@@ -1002,6 +1043,7 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
   }
 
   const updated = result2.rows[0];
+  const fallbackNationalId = !hasNationalIdColumn ? (incomingNationalId ?? null) : null;
   return res.json({
     data: {
       id: updated.id,
@@ -1011,7 +1053,7 @@ authRouter.put("/me", requireAuth("app"), async (req, res) => {
       fullName: updated.full_name,
       userType: updated.user_type,
       countryCode: updated.country_code,
-      nationalId: updated.national_id,
+      nationalId: hasNationalIdColumn ? updated.national_id : fallbackNationalId,
       language: updated.language,
       phone: updated.phone,
       dob: updated.dob,
