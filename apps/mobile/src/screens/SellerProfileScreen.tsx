@@ -45,6 +45,30 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
+  async function readResponsePayload(res: Response): Promise<{ json: SellerProfilePayload | null; rawText: string }> {
+    const rawText = await res.text();
+    const trimmed = rawText.trim();
+    if (!trimmed) return { json: {}, rawText };
+    try {
+      return { json: JSON.parse(trimmed) as SellerProfilePayload, rawText };
+    } catch {
+      return { json: null, rawText };
+    }
+  }
+
+  function responseErrorMessage(
+    res: Response,
+    payload: { json: SellerProfilePayload | null; rawText: string },
+    fallback: string,
+  ): string {
+    const apiMessage = payload.json?.error?.message?.trim();
+    if (apiMessage) return apiMessage;
+    const raw = payload.rawText.trim();
+    if (raw.startsWith("<")) return `${fallback} (Sunucu JSON yerine HTML döndü, HTTP ${res.status})`;
+    if (raw) return `${fallback}: ${raw.slice(0, 180)}`;
+    return `${fallback} (${res.status})`;
+  }
+
   async function authedFetch(path: string, init?: RequestInit, baseUrl = apiUrl): Promise<Response> {
     const makeHeaders = (session: AuthSession): Record<string, string> => ({
       "Content-Type": "application/json",
@@ -85,8 +109,9 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
       const baseUrl = settings.apiUrl;
       setApiUrl(baseUrl);
       const res = await authedFetch("/v1/seller/profile", undefined, baseUrl);
-      const json = (await res.json()) as SellerProfilePayload;
-      if (!res.ok) throw new Error(json.error?.message ?? "Satıcı profili yüklenemedi");
+      const payload = await readResponsePayload(res);
+      if (!res.ok || payload.json === null) throw new Error(responseErrorMessage(res, payload, "Satıcı profili yüklenemedi"));
+      const json = payload.json;
       setKitchenTitle(json.data?.kitchenTitle?.trim() ?? "");
       setKitchenDescription(json.data?.kitchenDescription?.trim() ?? "");
       setDeliveryRadiusKm(String(json.data?.deliveryRadiusKm ?? 3));
@@ -123,6 +148,7 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
   async function saveProfile(submitForReview = false) {
     setSaving(true);
     try {
+      const baseUrl = (await loadSettings()).apiUrl;
       const res = await authedFetch("/v1/seller/profile", {
         method: "PUT",
         body: JSON.stringify({
@@ -132,9 +158,10 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
           workingHours: parseWorkingHours(workingHoursText),
           submitForReview,
         }),
-      });
-      const json = (await res.json()) as SellerProfilePayload;
-      if (!res.ok) throw new Error(json.error?.message ?? "Kaydedilemedi");
+      }, baseUrl);
+      const payload = await readResponsePayload(res);
+      if (!res.ok || payload.json === null) throw new Error(responseErrorMessage(res, payload, "Kaydedilemedi"));
+      const json = payload.json;
       const nextStatus = json.data?.status ?? "incomplete";
       setStatus(nextStatus);
       Alert.alert("Tamam", submitForReview ? "Profil incelemeye gönderildi." : "Profil kaydedildi.");
