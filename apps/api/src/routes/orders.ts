@@ -163,6 +163,24 @@ function trackingStatusLabel(status: string): string {
   return "Sipariş alındı";
 }
 
+const PICKUP_STATUS_ORDER: OrderStatus[] = [
+  "paid",
+  "preparing",
+  "ready",
+  "in_delivery",
+  "approaching",
+  "at_door",
+  "delivered",
+  "completed",
+];
+
+function isPickupParallelNoopAllowed(currentStatus: OrderStatus, requestedStatus: OrderStatus): boolean {
+  const currentIndex = PICKUP_STATUS_ORDER.indexOf(currentStatus);
+  const requestedIndex = PICKUP_STATUS_ORDER.indexOf(requestedStatus);
+  if (currentIndex < 0 || requestedIndex < 0) return false;
+  return requestedIndex <= currentIndex;
+}
+
 async function tableExistsTx(client: PoolClient, fqTableName: string): Promise<boolean> {
   const result = await client.query<{ exists: boolean }>(
     "SELECT to_regclass($1) IS NOT NULL AS exists",
@@ -999,6 +1017,14 @@ async function transitionHandler(
     }
 
     if (!canTransition(currentStatus, toStatus)) {
+      if (
+        normalizeDeliveryType(order.delivery_type) === "pickup" &&
+        isPickupParallelNoopAllowed(currentStatus, toStatus)
+      ) {
+        await client.query("COMMIT");
+        committed = true;
+        return res.json({ data: { orderId: order.id, fromStatus: currentStatus, toStatus: currentStatus } });
+      }
       await client.query("ROLLBACK");
       return res.status(409).json({
         error: { code: "ORDER_INVALID_STATE", message: `Cannot transition ${currentStatus} -> ${toStatus}` },
