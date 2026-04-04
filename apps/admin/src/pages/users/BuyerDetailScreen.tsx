@@ -532,7 +532,7 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       setMessage("Acilabilir adres bulunamadi.");
       return;
     }
-    const target = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`;
+    const target = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(value)}&travelmode=driving`;
     window.open(target, "_blank", "noopener,noreferrer");
   }
 
