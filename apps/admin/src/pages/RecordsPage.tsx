@@ -438,13 +438,15 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     const normalize = (input: unknown) => {
       if (!input || typeof input !== "object") return null;
       const row = input as Record<string, unknown>;
+      const title = String(row.title ?? row.label ?? row.type ?? row.addressType ?? "").trim();
       const line = String(row.line ?? row.addressLine ?? "").trim();
       const district = String(row.district ?? "").trim();
       const city = String(row.city ?? "").trim();
       const postalCode = String(row.postalCode ?? row.postal_code ?? "").trim();
       const left = [line, district].filter(Boolean).join(", ");
       const right = [city, postalCode].filter(Boolean).join(", ");
-      return [left, right].filter(Boolean).join(" / ").trim();
+      const addressText = [left, right].filter(Boolean).join(" / ").trim();
+      return [title, addressText].filter(Boolean).join(" · ").trim();
     };
     if (typeof value === "object") {
       return normalize(value) || "-";
@@ -469,9 +471,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return `${text.slice(0, 8)}...${text.slice(-6)}`;
   };
 
-  const parseSelectedAddons = (
-    value: unknown,
-  ): { free: Array<{ name: string }>; paid: Array<{ name: string; quantity: number; price: number }> } => {
+  const parseSelectedAddons = (value: unknown): Array<{ name: string; quantity: number }> => {
     const parsed = (() => {
       if (!value) return null;
       if (typeof value === "object") return value as Record<string, unknown>;
@@ -483,7 +483,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         return null;
       }
     })();
-    if (!parsed || typeof parsed !== "object") return { free: [], paid: [] };
+    if (!parsed || typeof parsed !== "object") return [];
 
     const freeRaw = Array.isArray((parsed as Record<string, unknown>).free)
       ? ((parsed as Record<string, unknown>).free as Array<unknown>)
@@ -495,7 +495,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     const free = freeRaw
       .map((item) => {
         const row = item as Record<string, unknown>;
-        return { name: String(row?.name ?? "").trim() };
+        return { name: String(row?.name ?? "").trim(), quantity: 1 };
       })
       .filter((item) => item.name.length > 0);
 
@@ -504,33 +504,24 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         const row = item as Record<string, unknown>;
         const name = String(row?.name ?? "").trim();
         const quantity = Math.max(1, Number(row?.quantity ?? 1) || 1);
-        const price = Math.max(0, Number(row?.price ?? 0) || 0);
-        return { name, quantity, price };
+        return { name, quantity };
       })
       .filter((item) => item.name.length > 0);
 
-    return { free, paid };
+    return [...free, ...paid];
   };
 
   const renderSelectedAddonsCell = (value: unknown): ReactNode => {
     const addons = parseSelectedAddons(value);
-    if (addons.free.length === 0 && addons.paid.length === 0) return "-";
+    if (addons.length === 0) return "-";
     return (
       <div style={{ display: "grid", gap: 4, minWidth: 220 }}>
-        {addons.free.length > 0 ? (
-          <div style={{ whiteSpace: "normal" }}>
-            <strong>{language === "tr" ? "Ücretsiz:" : "Free:"}</strong>{" "}
-            {addons.free.map((item) => item.name).join(", ")}
+        {addons.map((item, index) => (
+          <div key={`addon-line-${index}`} style={{ whiteSpace: "normal" }}>
+            • {item.name}
+            {item.quantity > 1 ? ` x${item.quantity}` : ""}
           </div>
-        ) : null}
-        {addons.paid.length > 0 ? (
-          <div style={{ whiteSpace: "normal" }}>
-            <strong>{language === "tr" ? "Ücretli:" : "Paid:"}</strong>{" "}
-            {addons.paid
-              .map((item) => `${item.name} x${item.quantity} (+${formatCurrency(item.price * item.quantity, language)})`)
-              .join(", ")}
-          </div>
-        ) : null}
+        ))}
       </div>
     );
   };
@@ -938,11 +929,18 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   })();
   const selectedOrderItemsColumnsWithFoodName = (() => {
     const baseColumns = selectedOrderItemsColumns.filter((column) => column !== "created_at");
-    if (!baseColumns.includes("food_id")) return baseColumns;
     const withoutFoodName = baseColumns.filter((column) => column !== "food_name");
-    const foodIdIndex = withoutFoodName.indexOf("food_id");
-    if (foodIdIndex < 0) return withoutFoodName;
-    return [...withoutFoodName.slice(0, foodIdIndex + 1), "food_name", ...withoutFoodName.slice(foodIdIndex + 1)];
+    const withFoodName = (() => {
+      if (!withoutFoodName.includes("food_id")) return withoutFoodName;
+      const foodIdIndex = withoutFoodName.indexOf("food_id");
+      if (foodIdIndex < 0) return withoutFoodName;
+      return [...withoutFoodName.slice(0, foodIdIndex + 1), "food_name", ...withoutFoodName.slice(foodIdIndex + 1)];
+    })();
+    if (!withFoodName.includes("selected_addons_json")) return withFoodName;
+    const withoutAddons = withFoodName.filter((column) => column !== "selected_addons_json");
+    const quantityIndex = withoutAddons.indexOf("quantity");
+    if (quantityIndex < 0) return [...withoutAddons, "selected_addons_json"];
+    return [...withoutAddons.slice(0, quantityIndex + 1), "selected_addons_json", ...withoutAddons.slice(quantityIndex + 1)];
   })();
 
   return (
