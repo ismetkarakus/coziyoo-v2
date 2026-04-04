@@ -31,6 +31,8 @@ type SellerOrder = {
   totalPrice: number;
   createdAt?: string;
   updatedAt?: string;
+  buyerProgressStatus?: string | null;
+  buyerProgressAt?: string | null;
 };
 
 type SellerAction =
@@ -136,6 +138,14 @@ function statusLabel(status: string, deliveryType?: string): string {
   return getStatusInfo(normalized, deliveryType).label;
 }
 
+function buyerProgressLabel(status?: string | null): string | null {
+  const normalized = String(status ?? "").trim().toLowerCase();
+  if (normalized === "in_delivery") return "Alıcı: Yola Çıktım";
+  if (normalized === "approaching") return "Alıcı: Geliyorum";
+  if (normalized === "at_door") return "Alıcı: Kapıdayım";
+  return null;
+}
+
 function statusTone(status: string, deliveryType?: string): { bg: string; border: string; text: string } {
   const normalized = normalizeDisplayStatus(status, deliveryType);
   const info = getStatusInfo(
@@ -180,7 +190,15 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
   if (pickup && status === "preparing") {
     return { label: "Hazırlandı", toStatus: "ready", tone: "ready" };
   }
-  if (pickup && ["ready", "in_delivery", "approaching"].includes(status)) return null;
+  if (pickup && status === "ready") {
+    return { label: "Yoldayım", toStatus: "in_delivery", tone: "in_delivery" };
+  }
+  if (pickup && status === "in_delivery") {
+    return { label: "Yaklaştım", toStatus: "approaching", tone: "approaching" };
+  }
+  if (pickup && status === "approaching") {
+    return { label: "Kapıdayım", toStatus: "at_door", tone: "at_door" };
+  }
   if (pickup && status === "at_door") return null;
   if (pickup && ["delivered", "completed"].includes(status)) {
     return null;
@@ -700,6 +718,7 @@ export default function SellerHomeScreen({
                     section.data.map((item) => {
                       const action = cardActionByStatus(item.status, item.deliveryType);
                       const isUpdating = updatingOrderId === item.id;
+                      const buyerFlowText = buyerProgressLabel(item.buyerProgressStatus);
                       const statusText = statusLabel(item.status, item.deliveryType);
                       const passiveTone = toneFromStatus(item.status, item.deliveryType);
                       const resolvedTone = action?.tone ?? passiveTone;
@@ -752,6 +771,7 @@ export default function SellerHomeScreen({
                                     </View>
                                   ) : null}
                                 </View>
+                                {buyerFlowText ? <Text style={styles.orderBuyerFlowMeta}>{buyerFlowText}</Text> : null}
                                 <Text style={styles.orderMeta}>Alıcı: {item.buyerName || "-"}</Text>
                               </View>
                               <View style={styles.orderTopRight}>
@@ -1036,6 +1056,7 @@ const styles = StyleSheet.create({
   statusBadgeText: { color: "#5C4A3A", fontSize: 11, fontWeight: "700" },
   orderIdText: { color: "#887766", fontSize: 12, fontWeight: "800" },
   orderDateText: { color: "#9A8A7A", fontSize: 11, fontWeight: "700", marginTop: 2 },
+  orderBuyerFlowMeta: { color: "#0F766E", fontSize: 12, fontWeight: "800", marginTop: 4 },
   orderMeta: { color: "#6C6055", marginTop: 3 },
   orderElapsedText: { color: "#7A6C5E", fontSize: 12, fontWeight: "700" },
   newBadge: {

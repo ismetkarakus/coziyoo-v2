@@ -342,6 +342,8 @@ sellerRouter.get("/orders", async (req, res) => {
         buyer_name: string | null;
         primary_food_name: string | null;
         item_count: string;
+        buyer_progress_status: string | null;
+        buyer_progress_at: string | null;
       }>(
         `SELECT
            o.id::text,
@@ -355,7 +357,9 @@ sellerRouter.get("/orders", async (req, res) => {
            o.updated_at::text,
            b.display_name AS buyer_name,
            first_item.food_name AS primary_food_name,
-           COALESCE(item_stats.item_count, 0)::text AS item_count
+           COALESCE(item_stats.item_count, 0)::text AS item_count,
+           buyer_progress.to_status AS buyer_progress_status,
+           buyer_progress.created_at::text AS buyer_progress_at
          FROM orders o
          LEFT JOIN users b ON b.id = o.buyer_id
          LEFT JOIN LATERAL (
@@ -371,6 +375,15 @@ sellerRouter.get("/orders", async (req, res) => {
            FROM order_items oi
            WHERE oi.order_id = o.id
          ) item_stats ON TRUE
+         LEFT JOIN LATERAL (
+           SELECT oe.to_status, oe.created_at
+           FROM order_events oe
+           WHERE oe.order_id = o.id
+             AND oe.actor_user_id = o.buyer_id
+             AND oe.to_status IN ('in_delivery', 'approaching', 'at_door')
+           ORDER BY oe.created_at DESC
+           LIMIT 1
+         ) buyer_progress ON TRUE
          WHERE o.seller_id = $1
          ORDER BY o.created_at DESC, o.id DESC
          LIMIT $2 OFFSET $3`,
@@ -394,6 +407,8 @@ sellerRouter.get("/orders", async (req, res) => {
         orderNo: `#${row.id.slice(0, 8).toUpperCase()}`,
         primaryFoodName: row.primary_food_name ?? null,
         itemCount: Number(row.item_count ?? "0"),
+        buyerProgressStatus: row.buyer_progress_status ?? null,
+        buyerProgressAt: row.buyer_progress_at ?? null,
       })),
       pagination: {
         mode: "offset",
