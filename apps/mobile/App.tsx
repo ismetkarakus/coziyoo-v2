@@ -504,6 +504,7 @@ export default function App() {
         auth={auth}
         orderId={selectedOrderId}
         onBack={() => setScreen('orderDetail')}
+        onVerified={() => goHome('home')}
         onAuthRefresh={setAuth}
       />
     );

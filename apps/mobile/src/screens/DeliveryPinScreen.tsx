@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../theme/colors';
@@ -22,13 +22,15 @@ type Props = {
   auth: AuthSession;
   orderId: string;
   onBack: () => void;
+  onVerified?: () => void;
   onAuthRefresh?: (session: AuthSession) => void;
 };
 
-export default function DeliveryPinScreen({ auth, orderId, onBack, onAuthRefresh }: Props) {
+export default function DeliveryPinScreen({ auth, orderId, onBack, onVerified, onAuthRefresh }: Props) {
   const [record, setRecord] = useState<ProofRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const verifiedHandledRef = useRef(false);
 
   const fetchProof = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -62,6 +64,14 @@ export default function DeliveryPinScreen({ auth, orderId, onBack, onAuthRefresh
     const interval = setInterval(() => { void fetchProof({ silent: true }); }, 3_000);
     return () => clearInterval(interval);
   }, [record?.status, record?.pin, fetchProof]);
+
+  useEffect(() => {
+    if (!record) return;
+    if (record.status !== 'verified') return;
+    if (verifiedHandledRef.current) return;
+    verifiedHandledRef.current = true;
+    onVerified?.();
+  }, [record?.status, onVerified]);
 
   const statusConfig = {
     pending: { icon: 'time-outline' as const, color: '#D4740B', bg: '#FFF4E5', label: 'PIN Bekleniyor', sub: 'Satıcı sana bir PIN gönderdi. Teslimat anında satıcıya bu PIN\'i göster.' },
