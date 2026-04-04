@@ -390,6 +390,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
         ref={scrollRef}
         contentContainerStyle={[
           styles.content,
+          action ? styles.contentWithStickyAction : null,
           keyboardInset > 0
             ? { paddingBottom: 36 + keyboardInset + (shouldCheckPinBeforeComplete ? 96 : 0) }
             : null,
@@ -466,30 +467,35 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
               {shouldCheckPinBeforeComplete ? (
                 <Text style={styles.meta}>Alıcıdan kodu alıp doğrula.</Text>
               ) : null}
-              <TouchableOpacity
-                style={[
-                  styles.actionBtn,
-                  actionColors ? { backgroundColor: actionColors.bg, borderColor: actionColors.border } : null,
-                  updating && styles.actionDisabled,
-                ]}
-                disabled={updating}
-                onPress={() => {
-                  if (shouldCheckPinBeforeComplete) {
-                    setPinModalVisible(true);
-                    return;
-                  }
-                  void runAction(action);
-                }}
-              >
-                <Text style={styles.actionText}>
-                  {shouldCheckPinBeforeComplete ? "Kodu Doğrula" : action.label}
-                </Text>
-              </TouchableOpacity>
             </View>
           ) : null}
         </>
       )}
       </ScrollView>
+
+      {action ? (
+        <View style={styles.stickyActionBar}>
+          <TouchableOpacity
+            style={[
+              styles.actionBtn,
+              actionColors ? { backgroundColor: actionColors.bg, borderColor: actionColors.border } : null,
+              updating && styles.actionDisabled,
+            ]}
+            disabled={updating}
+            onPress={() => {
+              if (shouldCheckPinBeforeComplete) {
+                setPinModalVisible(true);
+                return;
+              }
+              void runAction(action);
+            }}
+          >
+            <Text style={styles.actionText}>
+              {shouldCheckPinBeforeComplete ? "Kodu Doğrula" : action.label}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
 
       <Modal visible={pinModalVisible} transparent animationType="fade" onRequestClose={() => setPinModalVisible(false)}>
         <KeyboardAvoidingView
@@ -543,6 +549,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F7F4EF" },
   content: { padding: 16, paddingBottom: 36, gap: 10 },
+  contentWithStickyAction: { paddingBottom: 132 },
   card: { backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E5DDCF", padding: 12 },
   cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
   orderNo: { fontSize: 17, fontWeight: "800", color: "#2E241C" },
@@ -566,6 +573,18 @@ const styles = StyleSheet.create({
   actionBtn: { marginTop: 8, backgroundColor: "#3F855C", borderRadius: 10, borderWidth: 1, paddingVertical: 11, alignItems: "center" },
   actionDisabled: { opacity: 0.45 },
   actionText: { color: "#fff", fontWeight: "700" },
+  stickyActionBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === "ios" ? 28 : 16,
+    backgroundColor: "#F7F4EF",
+    borderTopWidth: 1,
+    borderTopColor: "#E5DDCF",
+  },
   pinModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.28)",
