@@ -144,8 +144,11 @@ function getNextAction(status: string, deliveryType?: string): { label: string; 
   if (normalized === "preparing") {
     return { label: "Hazırlandı", toStatus: "ready" };
   }
-  // Pickup: seller's work ends at ready; buyer handles the rest
-  if (pickup) return null;
+  // Pickup: seller marks ready, buyer shares approach states, seller closes at door
+  if (pickup) {
+    if (normalized === "at_door") return { label: "Teslim Edildi", toStatus: "completed" };
+    return null;
+  }
   // Delivery flow
   if (normalized === "ready") {
     return { label: "Yola Çıktı", toStatus: "in_delivery" };
@@ -310,7 +313,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   const sellerStatusBadgeKey = useMemo(() => {
     if (!order) return "";
     const normalized = normalizeFlowStatus(order.status);
-    if (order.deliveryType === "pickup" && ["ready", "in_delivery", "approaching", "at_door"].includes(normalized)) {
+    if (order.deliveryType === "pickup" && normalized === "ready") {
       return "pickup_ready_seller";
     }
     return normalized;

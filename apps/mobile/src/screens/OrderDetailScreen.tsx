@@ -197,6 +197,20 @@ function buyerFlowLabelByDeliveryType(step: BuyerFlowStep, deliveryType: 'pickup
   return buyerFlowLabel(step);
 }
 
+type PickupProgressStatus = 'in_delivery' | 'approaching' | 'at_door';
+
+function nextPickupProgressAction(
+  status: string,
+  deliveryType: 'pickup' | 'delivery',
+): { label: string; toStatus: PickupProgressStatus } | null {
+  if (deliveryType !== 'pickup') return null;
+  const normalized = String(status ?? '').trim().toLowerCase();
+  if (normalized === 'ready') return { label: 'Yoldayım', toStatus: 'in_delivery' };
+  if (normalized === 'in_delivery') return { label: 'Yaklaştım', toStatus: 'approaching' };
+  if (normalized === 'approaching') return { label: 'Kapıdayım', toStatus: 'at_door' };
+  return null;
+}
+
 export default function OrderDetailScreen({
   auth, orderId, onBack, onOpenPayment, onOpenDeliveryPin, onOpenReview, onOpenComplaint, onAuthRefresh,
 }: Props) {
@@ -373,6 +387,23 @@ export default function OrderDetailScreen({
     }
   }
 
+  async function handlePickupProgress(toStatus: PickupProgressStatus) {
+    if (!order) return;
+    setActionLoading(true);
+    const result = await apiRequest(
+      `/v1/orders/${order.id}/status`,
+      currentAuth,
+      { method: 'POST', body: { toStatus }, actorRole: 'buyer' },
+      handleAuthRefresh,
+    );
+    setActionLoading(false);
+    if (result.ok) {
+      void fetchOrder({ silent: true });
+      return;
+    }
+    Alert.alert('Hata', result.message ?? 'Durum güncellenemedi');
+  }
+
   function formatEventDate(iso: string): string {
     if (!iso) return '-';
     const normalized = iso.trim().replace(' ', 'T').replace(/(\.\d+)?([+-]\d{2})$/, '$1$2:00');
@@ -417,6 +448,7 @@ export default function OrderDetailScreen({
     ['pending_seller_approval', 'seller_approved', 'awaiting_payment'].includes(order.status);
   const canReview = isBuyer && ['delivered', 'completed'].includes(order.status);
   const canComplain = isBuyer && ['at_door', 'delivered', 'completed'].includes(order.status);
+  const pickupProgressAction = isBuyer ? nextPickupProgressAction(order.status, order.deliveryType) : null;
   const normalizedOrderStatus = String(order.status ?? '').trim().toLowerCase();
   const canOpenDeliveryPin = isBuyer && order.deliveryType === 'delivery' && normalizedOrderStatus === 'at_door';
   const flowSteps = flowStepsByDeliveryType(order.deliveryType);
@@ -571,6 +603,15 @@ export default function OrderDetailScreen({
           ) : null}
           {canPay && onOpenPayment && (
             <ActionButton label="Ödeme Yap" onPress={() => onOpenPayment(order.id)} variant="primary" fullWidth />
+          )}
+          {pickupProgressAction && (
+            <ActionButton
+              label={pickupProgressAction.label}
+              onPress={() => void handlePickupProgress(pickupProgressAction.toStatus)}
+              loading={actionLoading}
+              variant="primary"
+              fullWidth
+            />
           )}
           {canOpenDeliveryPin && onOpenDeliveryPin && (
             <ActionButton label="Teslimat Kodu" onPress={() => onOpenDeliveryPin(order.id)} variant="soft" fullWidth />

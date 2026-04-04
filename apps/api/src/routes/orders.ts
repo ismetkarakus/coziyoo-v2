@@ -1045,7 +1045,7 @@ async function transitionHandler(
     }
 
     const skipProofCheck = env.PAYMENT_PROVIDER_NAME === "mockpay";
-    if (!skipProofCheck && toStatus === "completed") {
+    if (!skipProofCheck && toStatus === "completed" && order.delivery_type === "delivery") {
       const hasProofTable = await tableExistsTx(client, "public.delivery_proof_records");
       if (!hasProofTable) {
         console.warn("[orders] delivery proof table missing, skipping proof check", {

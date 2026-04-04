@@ -44,13 +44,13 @@ export function canActorSetStatus(
   const normalizedDeliveryType = normalizeDeliveryType(deliveryType);
   if (actorRole === "seller") {
     if (normalizedDeliveryType === "pickup") {
-      return ["preparing", "ready"].includes(to);
+      return ["preparing", "ready", "delivered", "completed"].includes(to);
     }
     return ["preparing", "ready", "in_delivery", "approaching", "at_door", "delivered", "completed"].includes(to);
   }
   if (actorRole === "buyer") {
     if (normalizedDeliveryType === "pickup") {
-      return ["cancelled"].includes(to);
+      return ["in_delivery", "approaching", "at_door", "cancelled"].includes(to);
     }
     return ["completed", "cancelled"].includes(to);
   }

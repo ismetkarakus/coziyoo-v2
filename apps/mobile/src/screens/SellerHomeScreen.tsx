@@ -33,7 +33,7 @@ type SellerOrder = {
 };
 
 type SellerAction =
-  | { label: string; toStatus: "preparing" | "ready" | "in_delivery" | "approaching" | "at_door" | "delivered"; tone: "preparing" | "ready" | "in_delivery" | "at_door" | "delivered" };
+  | { label: string; toStatus: "preparing" | "ready" | "in_delivery" | "approaching" | "at_door" | "delivered" | "completed"; tone: "preparing" | "ready" | "in_delivery" | "at_door" | "delivered" };
 
 type OrderGroupKey = "preparing" | "route" | "done";
 
@@ -104,12 +104,20 @@ function statusLabel(status: string, deliveryType?: string): string {
   const normalized = normalizeDisplayStatus(status, deliveryType);
   if (normalized === "cancelled" || normalized === "rejected") return "İptal";
   if (deliveryType === "pickup" && normalized === "ready") return "Hazırlandı";
+  if (deliveryType === "pickup" && ["in_delivery", "approaching", "at_door"].includes(normalized)) {
+    return getStatusInfo(normalized, undefined).label;
+  }
   return getStatusInfo(normalized, deliveryType).label;
 }
 
 function statusTone(status: string, deliveryType?: string): { bg: string; border: string; text: string } {
   const normalized = normalizeDisplayStatus(status, deliveryType);
-  const info = getStatusInfo(normalized, deliveryType);
+  const info = getStatusInfo(
+    normalized,
+    deliveryType === "pickup" && ["in_delivery", "approaching", "at_door"].includes(normalized)
+      ? undefined
+      : deliveryType,
+  );
   const borders: Record<string, string> = {
     preparing: "#F5C27A",
     ready: "#79C796",
@@ -129,13 +137,11 @@ function statusTone(status: string, deliveryType?: string): { bg: string; border
 }
 
 function normalizeDisplayStatus(status: string, deliveryType?: string): string {
-  const pickup = deliveryType === "pickup";
   if (status === "cancelled" || status === "rejected") return status;
-  if (pickup && ["ready", "in_delivery", "approaching", "at_door"].includes(status)) return "ready";
   if (status === "completed") return "delivered";
   if (status === "delivered" || status === "at_door") return status;
   if (status === "in_delivery") return "in_delivery";
-  if (status === "ready") return "in_delivery";
+  if (status === "ready") return deliveryType === "pickup" ? "ready" : "in_delivery";
   if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return status;
   return status;
 }
@@ -148,7 +154,13 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
   if (pickup && status === "preparing") {
     return { label: "Hazırlandı", toStatus: "ready", tone: "ready" };
   }
-  if (pickup && ["ready", "in_delivery", "approaching", "at_door", "delivered", "completed"].includes(status)) {
+  if (pickup && ["ready", "in_delivery", "approaching"].includes(status)) {
+    return null;
+  }
+  if (pickup && status === "at_door") {
+    return { label: "Teslim Edildi", toStatus: "completed", tone: "delivered" };
+  }
+  if (pickup && ["delivered", "completed"].includes(status)) {
     return null;
   }
   if (!pickup && status === "preparing") {
@@ -159,7 +171,6 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
   }
   if (status === "in_delivery") return { label: "Yaklaştı", toStatus: "approaching", tone: "at_door" };
   if (status === "approaching") return { label: "Kapıda", toStatus: "at_door", tone: "at_door" };
-  if (pickup && status === "at_door") return { label: "Teslim Edildi", toStatus: "delivered", tone: "delivered" };
   if (!pickup && status === "at_door") return null;
   return null;
 }
