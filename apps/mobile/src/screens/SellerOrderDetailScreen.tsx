@@ -3,7 +3,9 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
+  KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -170,6 +172,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [pinCode, setPinCode] = useState("");
+  const [pinModalVisible, setPinModalVisible] = useState(false);
   const [keyboardInset, setKeyboardInset] = useState(0);
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -314,11 +317,14 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   }, [order]);
 
   useEffect(() => {
-    if (!shouldCheckPinBeforeComplete) setPinCode("");
+    if (!shouldCheckPinBeforeComplete) {
+      setPinCode("");
+      setPinModalVisible(false);
+    }
   }, [shouldCheckPinBeforeComplete]);
 
-  async function runAction(action: { label: string; toStatus: string }) {
-    if (!order) return;
+  async function runAction(action: { label: string; toStatus: string }): Promise<boolean> {
+    if (!order) return false;
     setUpdating(true);
     try {
       const changeStatus = async (toStatus: string) => {
@@ -360,11 +366,21 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
         throw error;
       }
       await loadOrder();
+      return true;
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Durum güncellenemedi");
+      return false;
     } finally {
       setUpdating(false);
     }
+  }
+
+  async function handlePinVerifyFromModal() {
+    if (!action || !shouldCheckPinBeforeComplete) return;
+    const ok = await runAction(action);
+    if (!ok) return;
+    setPinModalVisible(false);
+    setPinCode("");
   }
 
   return (
@@ -448,36 +464,25 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Aksiyonlar</Text>
               {shouldCheckPinBeforeComplete ? (
-                <>
-                  <Text style={styles.meta}>Alıcıdan kodu alıp doğrula.</Text>
-                  <TextInput
-                    style={styles.pinInput}
-                    value={pinCode}
-                    onChangeText={(value) => setPinCode(value.replace(/[^0-9]/g, "").slice(0, 8))}
-                    onFocus={() => {
-                      setTimeout(() => {
-                        scrollRef.current?.scrollToEnd({ animated: true });
-                      }, 40);
-                    }}
-                    keyboardType="number-pad"
-                    maxLength={8}
-                    placeholder="Kodu gir (4-8 hane)"
-                    placeholderTextColor="#9C8E81"
-                    editable={!updating}
-                  />
-                </>
+                <Text style={styles.meta}>Alıcıdan kodu alıp doğrula.</Text>
               ) : null}
               <TouchableOpacity
                 style={[
                   styles.actionBtn,
                   actionColors ? { backgroundColor: actionColors.bg, borderColor: actionColors.border } : null,
-                  (updating || (shouldCheckPinBeforeComplete && !isPinReady)) && styles.actionDisabled,
+                  updating && styles.actionDisabled,
                 ]}
-                disabled={updating || (shouldCheckPinBeforeComplete && !isPinReady)}
-                onPress={() => void runAction(action)}
+                disabled={updating}
+                onPress={() => {
+                  if (shouldCheckPinBeforeComplete) {
+                    setPinModalVisible(true);
+                    return;
+                  }
+                  void runAction(action);
+                }}
               >
                 <Text style={styles.actionText}>
-                  {shouldCheckPinBeforeComplete ? "Kodu Doğrula ve Teslim Et" : action.label}
+                  {shouldCheckPinBeforeComplete ? "Kodu Doğrula" : action.label}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -485,6 +490,52 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
         </>
       )}
       </ScrollView>
+
+      <Modal visible={pinModalVisible} transparent animationType="fade" onRequestClose={() => setPinModalVisible(false)}>
+        <KeyboardAvoidingView
+          style={styles.pinModalOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <TouchableOpacity style={styles.pinModalBackdrop} activeOpacity={1} onPress={() => setPinModalVisible(false)} />
+          <View style={styles.pinModalCard}>
+            <Text style={styles.pinModalTitle}>Kodu Doğrula</Text>
+            <Text style={styles.pinModalSub}>Alıcıdan aldığın kodu gir.</Text>
+            <TextInput
+              style={styles.pinInput}
+              value={pinCode}
+              onChangeText={(value) => setPinCode(value.replace(/[^0-9]/g, "").slice(0, 8))}
+              keyboardType="number-pad"
+              maxLength={8}
+              placeholder="Kodu gir (4-8 hane)"
+              placeholderTextColor="#9C8E81"
+              editable={!updating}
+              autoFocus
+            />
+            <View style={styles.pinModalActions}>
+              <TouchableOpacity
+                style={[styles.pinModalBtn, styles.pinModalCancelBtn]}
+                onPress={() => setPinModalVisible(false)}
+                disabled={updating}
+              >
+                <Text style={styles.pinModalCancelText}>Vazgeç</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.pinModalBtn,
+                  styles.pinModalConfirmBtn,
+                  (updating || !isPinReady) && styles.actionDisabled,
+                ]}
+                onPress={() => {
+                  void handlePinVerifyFromModal();
+                }}
+                disabled={updating || !isPinReady}
+              >
+                <Text style={styles.pinModalConfirmText}>{updating ? "Doğrulanıyor..." : "Doğrula"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -515,4 +566,38 @@ const styles = StyleSheet.create({
   actionBtn: { marginTop: 8, backgroundColor: "#3F855C", borderRadius: 10, borderWidth: 1, paddingVertical: 11, alignItems: "center" },
   actionDisabled: { opacity: 0.45 },
   actionText: { color: "#fff", fontWeight: "700" },
+  pinModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.28)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+  pinModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  pinModalCard: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E5DDCF",
+    padding: 14,
+  },
+  pinModalTitle: { color: "#2E241C", fontWeight: "800", fontSize: 17 },
+  pinModalSub: { color: "#6C6055", marginTop: 4 },
+  pinModalActions: { flexDirection: "row", gap: 8, marginTop: 10 },
+  pinModalBtn: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 11,
+  },
+  pinModalCancelBtn: { backgroundColor: "#F6F1E8", borderColor: "#DCCFBF" },
+  pinModalConfirmBtn: { backgroundColor: "#3F855C", borderColor: "#3F855C" },
+  pinModalCancelText: { color: "#5B4F43", fontWeight: "700" },
+  pinModalConfirmText: { color: "#fff", fontWeight: "700" },
 });
