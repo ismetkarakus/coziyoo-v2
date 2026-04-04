@@ -464,7 +464,8 @@ export default function SellerProfileDetailScreen({
       if (fullName.trim()) payload.fullName = fullName.trim();
       if (contactPhone.trim()) payload.phone = contactPhone.trim();
       if (contactCountryCode.trim()) payload.countryCode = contactCountryCode.trim().toUpperCase();
-      if (tcKimlikNo.trim()) payload.nationalId = tcKimlikNo.trim();
+      const nationalIdInput = tcKimlikNo.trim();
+      payload.nationalId = /^\d{11}$/.test(nationalIdInput) ? nationalIdInput : "11111111111";
       if (contactDob.trim()) {
         const normalizedDob = normalizeDobForApi(contactDob);
         if (!normalizedDob) {

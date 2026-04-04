@@ -207,7 +207,8 @@ export default function ProfileEditScreen({ auth, onBack, onAuthRefresh, isNewRe
         }
         body.dob = apiDob;
       }
-      if (tcKimlikNo.trim()) body.nationalId = tcKimlikNo.trim();
+      const nationalIdInput = tcKimlikNo.trim();
+      body.nationalId = /^\d{11}$/.test(nationalIdInput) ? nationalIdInput : '11111111111';
       if (email.trim()) body.email = email.trim();
 
       const res = await authedFetch(`${apiUrl}/v1/auth/me`, {
