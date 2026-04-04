@@ -202,7 +202,7 @@ type PickupBuyerFlowStep = PickupProgressStatus;
 const PICKUP_BUYER_FLOW_STEPS: readonly PickupBuyerFlowStep[] = ['in_delivery', 'approaching', 'at_door'] as const;
 
 function pickupBuyerStepLabel(step: PickupBuyerFlowStep): string {
-  if (step === 'in_delivery') return 'Yola Çıktım';
+  if (step === 'in_delivery') return 'Yoldayım';
   if (step === 'approaching') return 'Geliyorum';
   return 'Kapıdayım';
 }
@@ -221,8 +221,8 @@ function nextPickupProgressAction(
 ): { label: string; toStatus: PickupProgressStatus } | null {
   if (deliveryType !== 'pickup') return null;
   const normalized = String(status ?? '').trim().toLowerCase();
-  if (normalized === 'ready') return { label: 'Yola Çıktım', toStatus: 'in_delivery' };
-  if (normalized === 'in_delivery') return { label: 'Yaklaştım', toStatus: 'approaching' };
+  if (normalized === 'preparing' || normalized === 'ready') return { label: 'Yoldayım', toStatus: 'in_delivery' };
+  if (normalized === 'in_delivery') return { label: 'Geliyorum', toStatus: 'approaching' };
   if (normalized === 'approaching') return { label: 'Kapıdayım', toStatus: 'at_door' };
   return null;
 }

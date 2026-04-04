@@ -140,7 +140,7 @@ function statusLabel(status: string, deliveryType?: string): string {
 
 function buyerProgressLabel(status?: string | null): string | null {
   const normalized = String(status ?? "").trim().toLowerCase();
-  if (normalized === "in_delivery") return "Alıcı: Yola Çıktım";
+  if (normalized === "in_delivery") return "Alıcı: Yoldayım";
   if (normalized === "approaching") return "Alıcı: Geliyorum";
   if (normalized === "at_door") return "Alıcı: Kapıdayım";
   return null;
