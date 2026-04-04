@@ -392,3 +392,50 @@ app.use("/v1/docs", docsRouter);
 app.use("/v1/livekit", liveKitRouter);
 app.use("/v1/voice", voiceRouter);
 app.use("/v1/session", voiceRouter);
+
+// API routes must always return JSON (never HTML fallback pages).
+app.use("/v1", (req, res) => {
+  return res.status(404).json({
+    error: {
+      code: "NOT_FOUND",
+      message: `Endpoint not found: ${req.method} ${req.originalUrl}`,
+    },
+  });
+});
+
+app.use((error: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (res.headersSent) return next(error);
+
+  const maybeStatus = (error as { status?: unknown })?.status;
+  const status = typeof maybeStatus === "number" && Number.isFinite(maybeStatus) ? Math.max(400, Math.floor(maybeStatus)) : 500;
+  const rawMessage = (error as { message?: unknown })?.message;
+  const message =
+    typeof rawMessage === "string" && rawMessage.trim()
+      ? rawMessage.trim()
+      : status >= 500
+        ? "Internal server error"
+        : "Request failed";
+
+  console.error("[app] unhandled error", {
+    method: req.method,
+    path: req.originalUrl,
+    status,
+    message,
+  });
+
+  if (req.path.startsWith("/v1/")) {
+    return res.status(status).json({
+      error: {
+        code: status >= 500 ? "INTERNAL_ERROR" : "REQUEST_FAILED",
+        message,
+      },
+    });
+  }
+
+  return res.status(status).json({
+    error: {
+      code: status >= 500 ? "INTERNAL_ERROR" : "REQUEST_FAILED",
+      message,
+    },
+  });
+});
