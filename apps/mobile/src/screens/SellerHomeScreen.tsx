@@ -154,8 +154,14 @@ function cardActionByStatus(status: string, deliveryType?: string): SellerAction
   if (pickup && status === "preparing") {
     return { label: "Hazırlandı", toStatus: "ready", tone: "ready" };
   }
-  if (pickup && ["ready", "in_delivery", "approaching"].includes(status)) {
-    return null;
+  if (pickup && status === "ready") {
+    return { label: "Yola Çıktım", toStatus: "in_delivery", tone: "in_delivery" };
+  }
+  if (pickup && status === "in_delivery") {
+    return { label: "Geliyorum", toStatus: "approaching", tone: "approaching" };
+  }
+  if (pickup && status === "approaching") {
+    return { label: "Kapıdayım", toStatus: "at_door", tone: "at_door" };
   }
   if (pickup && status === "at_door") return null;
   if (pickup && ["delivered", "completed"].includes(status)) {
