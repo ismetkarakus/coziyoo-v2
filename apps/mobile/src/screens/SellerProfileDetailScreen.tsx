@@ -456,7 +456,7 @@ export default function SellerProfileDetailScreen({
   async function saveContactProfile() {
     setContactSaving(true);
     try {
-      const baseUrl = apiUrl || (await loadSettings()).apiUrl;
+      const baseUrl = (await loadSettings()).apiUrl;
       const payload: Record<string, string> = {};
 
       if (contactEmail.trim()) payload.email = contactEmail.trim();
