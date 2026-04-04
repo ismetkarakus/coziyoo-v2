@@ -243,7 +243,22 @@ deliveryProofRouter.get("/:id/delivery-proof", requireAuth("app"), async (req, r
   const metadata = row.metadata_json && typeof row.metadata_json === "object"
     ? (row.metadata_json as Record<string, unknown>)
     : null;
-  const buyerPin = isBuyerViewer ? String(metadata?.buyerPin ?? "").trim() : "";
+  let buyerPin = isBuyerViewer ? String(metadata?.buyerPin ?? "").trim() : "";
+  if (isBuyerViewer && !buyerPin) {
+    const pinFromNotification = await pool.query<{ body: string | null }>(
+      `SELECT body
+       FROM notification_events
+       WHERE user_id = $1
+         AND type = 'delivery_pin'
+         AND COALESCE(data_json->>'orderId', '') = $2
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [order.rows[0].buyer_id, orderId],
+    );
+    const bodyText = String(pinFromNotification.rows[0]?.body ?? "");
+    const match = bodyText.match(/\b(\d{4,8})\b/);
+    if (match) buyerPin = match[1];
+  }
   return res.json({
     data: {
       orderId: row.order_id,

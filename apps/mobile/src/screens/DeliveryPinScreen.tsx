@@ -30,9 +30,12 @@ export default function DeliveryPinScreen({ auth, orderId, onBack, onAuthRefresh
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchProof = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchProof = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     const result = await apiRequest<ProofRecord>(
       `/v1/orders/${orderId}/delivery-proof`,
       auth,
@@ -41,15 +44,24 @@ export default function DeliveryPinScreen({ auth, orderId, onBack, onAuthRefresh
     );
     if (result.ok) {
       setRecord(result.data);
-    } else if (result.status === 404) {
+      if (!silent) setError(null);
+    } else if (result.status === 404 || result.status === 403) {
       setRecord(null);
-    } else {
+      if (!silent) setError(null);
+    } else if (!silent) {
       setError(result.message ?? 'Yüklenemedi');
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [orderId, auth, onAuthRefresh]);
 
-  useEffect(() => { fetchProof(); }, [fetchProof]);
+  useEffect(() => { void fetchProof(); }, [fetchProof]);
+
+  useEffect(() => {
+    const shouldPoll = !record || record.status === 'pending';
+    if (!shouldPoll) return () => {};
+    const interval = setInterval(() => { void fetchProof({ silent: true }); }, 3_000);
+    return () => clearInterval(interval);
+  }, [record?.status, record?.pin, fetchProof]);
 
   const statusConfig = {
     pending: { icon: 'time-outline' as const, color: '#D4740B', bg: '#FFF4E5', label: 'PIN Bekleniyor', sub: 'Satıcı sana bir PIN gönderdi. Teslimat anında satıcıya bu PIN\'i göster.' },
