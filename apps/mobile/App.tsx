@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, ActivityIndicator, StyleSheet, Platform, Alert, TouchableOpacity, Animated, PanResponder, BackHandler } from 'react-native';
+import {
+  View,
+  ActivityIndicator,
+  StyleSheet,
+  Platform,
+  Alert,
+  TouchableOpacity,
+  Animated,
+  PanResponder,
+  BackHandler,
+  KeyboardAvoidingView,
+} from 'react-native';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -708,7 +719,11 @@ export default function App() {
           onSwitchToBuyer={canSwitchRole ? () => setActorMode('buyer') : undefined}
         />
         {sellerOrderModalVisible && selectedOrderId ? (
-          <View style={styles.sheetOverlay}>
+          <KeyboardAvoidingView
+            style={styles.sheetOverlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+          >
             <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={closeSheet} />
             <Animated.View style={[styles.sheetCard, { transform: [{ translateY: sheetTranslateY }] }]} {...sheetPanResponder.panHandlers}>
               <View style={styles.sheetGrabber} />
@@ -719,7 +734,7 @@ export default function App() {
                 onAuthRefresh={setAuth}
               />
             </Animated.View>
-          </View>
+          </KeyboardAvoidingView>
         ) : null}
       </>
     );
