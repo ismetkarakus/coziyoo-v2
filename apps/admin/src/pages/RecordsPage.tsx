@@ -471,7 +471,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return `${text.slice(0, 8)}...${text.slice(-6)}`;
   };
 
-  const parseSelectedAddons = (value: unknown): Array<{ name: string; quantity: number }> => {
+  const parseSelectedAddons = (value: unknown): Array<{ name: string; quantity: number; price: number }> => {
     const parsed = (() => {
       if (!value) return null;
       if (typeof value === "object") return value as Record<string, unknown>;
@@ -495,7 +495,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     const free = freeRaw
       .map((item) => {
         const row = item as Record<string, unknown>;
-        return { name: String(row?.name ?? "").trim(), quantity: 1 };
+        return { name: String(row?.name ?? "").trim(), quantity: 1, price: 0 };
       })
       .filter((item) => item.name.length > 0);
 
@@ -504,7 +504,8 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         const row = item as Record<string, unknown>;
         const name = String(row?.name ?? "").trim();
         const quantity = Math.max(1, Number(row?.quantity ?? 1) || 1);
-        return { name, quantity };
+        const price = Math.max(0, Number(row?.price ?? 0) || 0);
+        return { name, quantity, price };
       })
       .filter((item) => item.name.length > 0);
 
@@ -520,6 +521,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
           <div key={`addon-line-${index}`} style={{ whiteSpace: "normal" }}>
             • {item.name}
             {item.quantity > 1 ? ` x${item.quantity}` : ""}
+            {item.price > 0 ? ` (+${formatCurrency(item.price * item.quantity, language)})` : ""}
           </div>
         ))}
       </div>
@@ -1186,18 +1188,27 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     <tbody>
                       {selectedOrderEvents
                         .map((event) => {
+                          const eventType = String(event.event_type ?? "").trim().toLowerCase();
+                          const toStatusRaw = String(event.to_status ?? "").trim().toLowerCase();
+                          const fromStatusRaw = String(event.from_status ?? "").trim().toLowerCase();
                           const toStatus = normalizeBuyerFlowStatus(event.to_status);
                           const fromStatus = normalizeBuyerFlowStatus(event.from_status);
                           return {
+                            eventType,
                             createdAt: event.created_at,
+                            toStatusRaw,
+                            fromStatusRaw,
                             toStatus,
                             fromStatus,
                             actorId: String(event.actor_user_id ?? "").trim(),
                           };
                         })
                         .filter((event) => {
+                          if (["order_created", "payment_start"].includes(event.eventType)) return false;
+                          if (["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(event.toStatusRaw)) return false;
                           if (!event.toStatus) return false;
                           if (!["preparing", "in_delivery", "at_door", "delivered", "completed", "cancelled"].includes(event.toStatus)) return false;
+                          if (event.fromStatusRaw && event.toStatusRaw && event.fromStatusRaw === event.toStatusRaw) return false;
                           return !(event.fromStatus && event.fromStatus === event.toStatus);
                         })
                         .reduce<Array<{ createdAt: unknown; toStatus: string; fromStatus: string; actorId: string }>>((acc, event) => {
