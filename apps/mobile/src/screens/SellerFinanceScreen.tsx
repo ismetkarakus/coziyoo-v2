@@ -354,7 +354,7 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
                 </View>
               </View>
               <TouchableOpacity style={styles.withdrawBtn} onPress={() => setActiveTab("withdraw")} activeOpacity={0.9}>
-                <Text style={styles.withdrawBtnText}>Kart Detaylarım</Text>
+                <Text style={styles.withdrawBtnText}>Para Çek</Text>
                 <Ionicons name="arrow-forward" size={12} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
