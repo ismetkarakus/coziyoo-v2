@@ -150,7 +150,7 @@ main() {
 
   compose_init
 
-  local env_file="${ENV_FILE:-${ROOT_DIR}/.env.local}"
+  local env_file="${ENV_FILE:-${ROOT_DIR}/.env}"
   [[ -f "$env_file" ]] || fail "Missing env file: $env_file"
 
   SOURCE_DOCKER_SERVICE="$(resolve_var SOURCE_DOCKER_SERVICE "$env_file" "postgres")"
@@ -202,7 +202,7 @@ main() {
   done < <(dc config --services)
   service_exists "$SOURCE_DOCKER_SERVICE" || fail "Source docker service '$SOURCE_DOCKER_SERVICE' not found in compose services"
 
-  MAINTENANCE_SERVICES=(api voice-agent-api voice-agent-worker admin)
+  MAINTENANCE_SERVICES=(api admin)
   STOPPED_SERVICES=()
   trap 'cleanup $?' EXIT
 

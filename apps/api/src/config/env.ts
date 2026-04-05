@@ -1,8 +1,18 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { z } from "zod";
 
-dotenv.config({ path: ".env.local" });
-dotenv.config();
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const apiDir = path.resolve(moduleDir, "../..");
+const repoRoot = path.resolve(apiDir, "../..");
+
+for (const envPath of [path.join(repoRoot, ".env"), path.join(apiDir, ".env")]) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath, override: false });
+  }
+}
 
 const boolFromEnv = z
   .union([z.boolean(), z.string()])

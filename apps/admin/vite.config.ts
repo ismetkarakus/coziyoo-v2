@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     cacheDir: ".vite",
-    // Keep admin-local .env support, but still inherit shared defaults from the
-    // monorepo root via the merged process.env above.
+    // Admin reads its own .env first and can still inherit shared root values
+    // from the merged process.env above.
     envDir: __dirname,
     server: {
       port: 5174,

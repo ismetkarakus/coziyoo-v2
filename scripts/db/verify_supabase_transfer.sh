@@ -194,7 +194,7 @@ main() {
 
   compose_init
 
-  local env_file="${ENV_FILE:-${ROOT_DIR}/.env.local}"
+  local env_file="${ENV_FILE:-${ROOT_DIR}/.env}"
   [[ -f "$env_file" ]] || fail "Missing env file: $env_file"
 
   SOURCE_DOCKER_SERVICE="$(resolve_var SOURCE_DOCKER_SERVICE "$env_file" "postgres")"

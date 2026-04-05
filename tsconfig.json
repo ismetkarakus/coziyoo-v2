@@ -1,5 +1,5 @@
 {
   "compilerOptions": {},
   "extends": "expo/tsconfig.base",
-  "exclude": ["apps/admin", "apps/api", "apps/voice-agent", "node_modules"]
+  "exclude": ["apps/admin", "apps/api", "node_modules"]
 }

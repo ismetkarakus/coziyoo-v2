@@ -15,7 +15,6 @@ import EntitiesPage from "./pages/EntitiesPage";
 import AuditPage from "./pages/AuditPage";
 import ApiTokensPage from "./pages/ApiTokensPage";
 import ComplianceDocumentsPage from "./pages/ComplianceDocumentsPage";
-import VoiceAgentSettingsPage from "./pages/VoiceAgentSettingsPage";
 import SalesCommissionSettingsPage from "./pages/SalesCommissionSettingsPage";
 import AdminTestScenariosPage from "./pages/AdminTestScenariosPage";
 import SecurityPage from "./pages/SecurityPage";
@@ -426,7 +425,6 @@ function AppShell({
           {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
           {location.pathname === "/app/sales-commission-settings" ? <SalesCommissionSettingsPage language={language} /> : null}
           {location.pathname === "/app/test-scenarios" ? <AdminTestScenariosPage language={language} /> : null}
-          {location.pathname.startsWith("/app/voice-agent-settings") ? <VoiceAgentSettingsPage language={language} /> : null}
           {location.pathname === "/app/entities" || location.pathname.startsWith("/app/entities/") ? <EntitiesPage language={language} /> : null}
           {visibleAppUserId ? (
             <div style={{ display: location.pathname.startsWith("/app/users/") ? undefined : "none" }}>
@@ -553,7 +551,6 @@ function TopNavTabs({
     { to: "/app/test-scenarios", active: pathname.startsWith("/app/test-scenarios"), label: dict.menu.testScenarios },
     { to: "/app/sales-commission-settings", active: pathname.startsWith("/app/sales-commission-settings"), label: dict.menu.salesCommissionSettings },
     { to: "/app/api-tokens", active: pathname.startsWith("/app/api-tokens"), label: dict.menu.apiTokens },
-    { to: "/app/voice-agent-settings", active: pathname.startsWith("/app/voice-agent-settings"), label: dict.menu.voiceAgentSettings },
     { to: "/app/audit", active: pathname.startsWith("/app/audit"), label: dict.menu.audit },
     { to: "/app/security", active: pathname.startsWith("/app/security"), label: dict.menu.security },
     { to: "/app/entities", active: pathname.startsWith("/app/entities"), label: dict.menu.dataExplorer },

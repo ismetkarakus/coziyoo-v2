@@ -4,7 +4,7 @@ This document summarizes the current project state and defines working boundarie
 
 ## 1) Monorepo State
 - Structure: npm workspaces (`apps/*`, `packages/*`).
-- Main active apps: `apps/api`, `apps/admin`, `apps/mobile`, `apps/voice-agent`, `apps/livekit`.
+- Main active apps: `apps/api`, `apps/admin`, `apps/mobile`.
 - Shared packages: `packages/shared-types`, `packages/shared-utils`.
 - Deployment/operations center: `installation/scripts/*`.
 - CI/CD workflow: `.github/workflows/deploy-on-push.yml`.
@@ -14,7 +14,7 @@ This document summarizes the current project state and defines working boundarie
 - `update_all.sh` flow:
   - stop app services
   - optional demo DB rebuild decision (flag + schema-change check)
-  - update API/Admin/Voice Agent
+  - update API/Admin
   - optional reseed + admin sync
   - idempotent post-deploy DB patch checks via `apply_post_deploy_db_updates.sh`
   - health checks and validation

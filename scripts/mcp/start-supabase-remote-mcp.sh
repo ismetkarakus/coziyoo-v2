@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-ENV_FILES=("$ROOT_DIR/.env" "$ROOT_DIR/.env.local")
+ENV_FILES=("$ROOT_DIR/.env")
 
 read_env_var() {
   local file="$1"
@@ -44,12 +44,12 @@ if [[ -z "${SUPABASE_HOST_URL:-}" ]]; then
 fi
 
 if [[ -z "${SUPABASE_HOST_URL:-}" ]]; then
-  echo "Missing SUPABASE_HOST_URL (or SUPABASE_URL) in .env/.env.local" >&2
+  echo "Missing SUPABASE_HOST_URL (or SUPABASE_URL) in .env" >&2
   exit 1
 fi
 
 if [[ -z "${SUPABASE_TOKEN:-}" ]]; then
-  echo "Missing SUPABASE_PERSONAL_ACCESS_TOKEN (or SUPABASE_ACCESS_TOKEN) in .env/.env.local" >&2
+  echo "Missing SUPABASE_PERSONAL_ACCESS_TOKEN (or SUPABASE_ACCESS_TOKEN) in .env" >&2
   exit 1
 fi
 

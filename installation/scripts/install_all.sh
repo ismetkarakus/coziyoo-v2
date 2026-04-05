@@ -32,7 +32,6 @@ run_step install_prereqs.sh
 run_step install_npm_proxy_manager.sh
 run_step install_api_service.sh
 run_step install_admin_panel.sh
-run_step install_voice_agent_service.sh
 
 echo ""
 echo "All installation steps completed."

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-Coziyoo v2 is a food-ordering marketplace platform with voice-first AI sales assistance. It is an npm workspaces monorepo containing a Node.js/Express API, React admin panel, Expo mobile app, and a Python LiveKit voice agent.
+Coziyoo v2 is a food-ordering marketplace platform. It is an npm workspaces monorepo containing a Node.js/Express API, React admin panel, and Expo mobile app.
 
 ## Common Commands
 
@@ -43,16 +43,6 @@ bash installation/scripts/seed-data.sh    # Seed sample data
 npm run seed:admin --workspace=apps/api   # Seed admin user only
 ```
 
-### Voice Agent (Python)
-
-```bash
-cd apps/voice-agent
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
-python -m voice_agent.entrypoint          # Worker process
-uvicorn voice_agent.join_api:app --port 9000  # Dispatch API
-```
-
 ### Workspace-scoped package management
 
 ```bash
@@ -77,7 +67,6 @@ bash installation/scripts/generate_env.sh # Generate root .env from template
 | `apps/api` | Node.js/Express/TypeScript | 3000 | REST API |
 | `apps/admin` | React/Vite/TypeScript | 5174 (dev) / 8000 (prod) | Admin panel |
 | `apps/mobile` | Expo/React Native | Expo | Buyer/seller mobile app |
-| `apps/voice-agent` | Python/FastAPI/LiveKit Agents | 9000 | AI voice sales agent |
 
 Production ingress via Nginx Proxy Manager (Docker):
 - `api.coziyoo.com` → `127.0.0.1:3000`
@@ -88,7 +77,7 @@ Production ingress via Nginx Proxy Manager (Docker):
 - `app.ts` — Express setup, middleware registration, route mounting
 - `routes/` — 20 route files grouped by domain (`auth`, `orders`, `payments`, `livekit`, `admin/*`)
 - `db/client.ts` — PostgreSQL pool (pg) using root `.env` vars
-- `config/env.ts` — Zod-validated env schema; loads `.env.local` then `.env`
+- `config/env.ts` — Zod-validated env schema; loads root `.env` plus `apps/api/.env`
 - `services/` — Business logic layer (order state machine, payouts, outbox, Ollama, N8N, TTS, etc.)
 - `db/client.ts` — PostgreSQL pool (pg) using root `.env` vars
 - `db/migrations/` — Sequential SQL migrations (`0001_*.sql` → `0012_*.sql`)
@@ -106,15 +95,6 @@ Content-type normalization strips malformed charset values before Express body p
 - Separate secrets: `APP_JWT_SECRET` and `ADMIN_JWT_SECRET`
 - Access + refresh token pairs; Bearer token in `Authorization` header
 - Passwords hashed with Argon2
-
-### Voice Agent Architecture
-
-The Python voice agent (`apps/voice-agent`) runs as a LiveKit Agents worker:
-- **Entrypoint:** `voice_agent/entrypoint.py` — registers worker, handles job dispatch
-- **Join API:** `voice_agent/join_api.py` — FastAPI endpoint called by mobile to request an agent
-- **Agent flow:** LiveKit room → VAD (Silero) → STT → LLM (Ollama) → TTS → audio back to room
-- **UI actions:** sent to mobile client via LiveKit data channel (deterministic JSON commands)
-- **End-of-call:** fires N8N webhook to trigger order processing workflows
 
 ### Admin Panel (`apps/admin/src/`)
 
@@ -140,10 +120,12 @@ GitHub Actions (`.github/workflows/deploy-on-push.yml`) SSH-deploys to one or mo
 
 ## Environment Configuration
 
-Root `.env` is the single source of truth for all services (API reads it directly; installation scripts source it). Key groups:
+Environment is split by app. Root `.env` is reserved for shared/ops values, while each app keeps its own runtime `.env`. Key groups:
 
-- **API:** `API_PORT`, `APP_JWT_SECRET`, `ADMIN_JWT_SECRET`
+- **API:** `PORT`, `APP_JWT_SECRET`, `ADMIN_JWT_SECRET`
 - **Database:** `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `DATABASE_URL`
+- **Admin:** `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+- **Mobile:** `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 - **LiveKit:** `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`
 - **S3:** `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET_SELLER_DOCS`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (seller compliance document storage)
 - **External:** `OLLAMA_BASE_URL`, `N8N_HOST`, `TTS_API_KEY`, `SPEECH_TO_TEXT_API_KEY`, `PAYMENT_WEBHOOK_SECRET`

@@ -379,7 +379,6 @@ app.use("/v1/admin", adminApiTokenRouter);
 app.use("/v1/admin", adminSalesCommissionSettingsRouter);
 app.use("/v1/admin", adminSecurityRouter);
 app.use("/v1/admin/livekit", adminLiveKitRouter);
-app.use("/v1/voice-agent", adminLiveKitRouter);
 app.use("/v1/admin/agent-profiles", requireAuth("admin"), agentProfilesRouter);
 app.use("/v1/admin/agent-call-logs", requireAuth("admin"), adminAgentCallLogsRouter);
 app.use("/v1/foods", foodsRouter);

@@ -29,9 +29,10 @@ npm install
 ### 2. Configure Environment
 
 ```bash
-cp .env.example .env.local
-# Edit .env.local for local development
-# Keep .env for production runtime
+cp .env.example .env
+cp apps/api/.env.example apps/api/.env
+cp apps/admin/.env.example apps/admin/.env
+cp apps/mobile/.env.example apps/mobile/.env
 ```
 
 ### 3. Run Development
@@ -58,10 +59,10 @@ npm run ios
 
 ## Docker Dev Stack (No System-Wide Node/Python)
 
-Use this when you want API/Admin/Voice Agent/Postgres to run fully in containers while keeping LiveKit remote.
+Use this when you want API and Admin to run fully in containers.
 
 ```bash
-# Start API + Admin + Voice Agent API + Voice Agent worker
+# Start API + Admin
 docker compose -f docker-compose.dev.yml up -d
 
 # Follow logs
@@ -76,9 +77,7 @@ docker compose -f docker-compose.dev.yml down
 
 Notes:
 - Mobile app can continue running on simulator from host as usual.
-- Dev compose reads environment from `.env.local` for all services.
-- `docker-compose.dev.yml` sets `AI_SERVER_URL` in API service to `http://voice-agent-api:9000`.
-- Ensure `.env.local` has valid `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` for your remote LiveKit server.
+- Dev compose reads shared values from root `.env` and app-specific values from each app's `.env`.
 
 ## Available Scripts
 
@@ -140,7 +139,6 @@ Nginx Proxy Manager routes external traffic:
 
 Environment file policy:
 
-- `.env.local`: development runtime file
 - `.env.example`: sample template
 - `.env`: production/runtime file
 
@@ -148,7 +146,7 @@ Application configuration values include:
 
 - **API settings:** `API_PORT`, `*_SECRET` keys
 - **Database:** `DATABASE_URL`, `DATABASE_SSL_MODE`
-- **External services:** `PAYMENT_WEBHOOK_SECRET`, `AI_SERVER_*`, etc.
+- **External services:** `PAYMENT_WEBHOOK_SECRET`, `LIVEKIT_*`, `AI_SERVER_*`, etc.
 
 Installation-specific settings are in `installation/config.env`.
 

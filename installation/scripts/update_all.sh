@@ -11,26 +11,19 @@ acquire_update_lock
 dump_failure_diagnostics() {
   log "Collecting deployment diagnostics"
   "${SCRIPT_DIR}/run_all.sh" status api || true
-  "${SCRIPT_DIR}/run_all.sh" status voice-agent-api || true
-  "${SCRIPT_DIR}/run_all.sh" status voice-agent-worker || true
   run_root journalctl -u "${API_SERVICE_NAME:-coziyoo-api}" -n 120 --no-pager || true
-  run_root journalctl -u "${VOICE_AGENT_API_SERVICE_NAME:-coziyoo-voice-agent-api}" -n 80 --no-pager || true
-  run_root journalctl -u "${VOICE_AGENT_WORKER_SERVICE_NAME:-coziyoo-voice-agent-worker}" -n 80 --no-pager || true
 }
 
 log "Starting full update"
 log "Stopping app services before update"
 "${SCRIPT_DIR}/run_all.sh" stop api || true
 "${SCRIPT_DIR}/run_all.sh" stop admin || true
-"${SCRIPT_DIR}/run_all.sh" stop voice-agent-api || true
-"${SCRIPT_DIR}/run_all.sh" stop voice-agent-worker || true
 
 log "Skipping deploy-time DB rebuild/reseed/admin-sync steps (database managed externally)"
 
 "${SCRIPT_DIR}/update_api_service.sh"
 
 "${SCRIPT_DIR}/update_admin_panel.sh"
-"${SCRIPT_DIR}/update_voice_agent_service.sh"
 
 API_PORT="${API_PORT:-3000}"
 UPDATE_SKIP_HEALTHCHECKS="${UPDATE_SKIP_HEALTHCHECKS:-false}"
@@ -64,23 +57,6 @@ if [[ "${UPDATE_SKIP_HEALTHCHECKS}" != "true" ]]; then
       fail "Strict DB health check failed"
     fi
     log "Strict DB health check passed"
-  fi
-
-  VOICE_AGENT_PORT="${VOICE_AGENT_PORT:-9000}"
-  log "Running voice agent API liveness check on :${VOICE_AGENT_PORT}/health"
-  va_ok="false"
-  for ((attempt=1; attempt<=HEALTHCHECK_RETRIES; attempt++)); do
-    if curl -fsS --max-time "${HEALTHCHECK_TIMEOUT_SECONDS}" "http://127.0.0.1:${VOICE_AGENT_PORT}/health" >/dev/null; then
-      va_ok="true"
-      log "Voice agent API liveness check passed (attempt ${attempt}/${HEALTHCHECK_RETRIES})"
-      break
-    fi
-    log "Voice agent API liveness check failed (attempt ${attempt}/${HEALTHCHECK_RETRIES}), waiting ${HEALTHCHECK_RETRY_DELAY_SECONDS}s"
-    sleep "${HEALTHCHECK_RETRY_DELAY_SECONDS}"
-  done
-  if [[ "${va_ok}" != "true" ]]; then
-    dump_failure_diagnostics
-    fail "Voice agent API liveness checks failed after ${HEALTHCHECK_RETRIES} attempts"
   fi
 
 else
