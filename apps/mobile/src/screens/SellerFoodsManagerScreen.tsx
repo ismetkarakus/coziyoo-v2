@@ -203,9 +203,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerActions: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
-    gap: 10,
+    gap: 6,
   },
   addBtn: {
     height: 36,
