@@ -187,6 +187,34 @@ function parseLocalizedDecimal(value: string): number {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
+async function parseResponseBodySafe(res: Response): Promise<unknown> {
+  const raw = await res.text();
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return { rawText: raw } as { rawText: string };
+  }
+}
+
+function resolveApiMessage(payload: unknown, fallback: string): string {
+  if (payload && typeof payload === "object") {
+    const obj = payload as Record<string, unknown>;
+    if (obj.error && typeof obj.error === "object") {
+      const err = obj.error as Record<string, unknown>;
+      if (typeof err.message === "string" && err.message.trim()) return err.message.trim();
+    }
+    if (typeof obj.message === "string" && obj.message.trim()) return obj.message.trim();
+    if (typeof obj.rawText === "string") {
+      const raw = obj.rawText.trim();
+      if (raw.startsWith("<")) {
+        return "Sunucu JSON yerine HTML döndürdü. Lütfen tekrar dene.";
+      }
+    }
+  }
+  return fallback;
+}
+
 function parseFreeAddonNames(value: string): string[] {
   const normalizedInput = value
     .replace(/\s+(ve|ile)\s+/gi, ", ")
@@ -356,18 +384,19 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
       const baseUrl = settings.apiUrl;
       setApiUrl(baseUrl);
       const res = await authedFetch("/v1/seller/foods", undefined, baseUrl);
-      const json = await res.json();
+      const json = await parseResponseBodySafe(res);
       if (!res.ok) {
         console.warn("[seller-foods-screen] foods fetch failed", {
           status: res.status,
-          message: json?.error?.message ?? null,
+          message: resolveApiMessage(json, "Yemekler yüklenemedi"),
           userId: currentAuth.userId,
           actorRole: "seller",
         });
-        throw new Error(json?.error?.message ?? "Yemekler yüklenemedi");
+        throw new Error(resolveApiMessage(json, "Yemekler yüklenemedi"));
       }
-      const rows: SellerFood[] = Array.isArray(json?.data)
-        ? json.data.map((item: unknown) => normalizeSellerFood((item ?? {}) as Record<string, unknown>))
+      const payload = (json && typeof json === "object") ? (json as Record<string, unknown>) : {};
+      const rows: SellerFood[] = Array.isArray(payload.data)
+        ? (payload.data as unknown[]).map((item: unknown) => normalizeSellerFood((item ?? {}) as Record<string, unknown>))
         : [];
       console.info("[seller-foods-screen] foods loaded", {
         count: rows.length,
@@ -386,9 +415,10 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
     try {
       setLoadingCategories(true);
       const res = await authedFetch("/v1/seller/categories", undefined, baseUrl);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? "Kategoriler yüklenemedi");
-      const items: unknown[] = Array.isArray(json?.data) ? json.data : [];
+      const json = await parseResponseBodySafe(res);
+      if (!res.ok) throw new Error(resolveApiMessage(json, "Kategoriler yüklenemedi"));
+      const payload = (json && typeof json === "object") ? (json as Record<string, unknown>) : {};
+      const items: unknown[] = Array.isArray(payload.data) ? (payload.data as unknown[]) : [];
       const mapped =
         items
           .map((item) => {
@@ -699,10 +729,14 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
       const path = editingFood ? `/v1/seller/foods/${editingFood.id}` : "/v1/seller/foods";
       const method = editingFood ? "PATCH" : "POST";
       const res = await authedFetch(path, { method, body: JSON.stringify(payload) });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? "Kaydedilemedi");
+      const json = await parseResponseBodySafe(res);
+      if (!res.ok) throw new Error(resolveApiMessage(json, "Kaydedilemedi"));
+      const responsePayload = (json && typeof json === "object") ? (json as Record<string, unknown>) : {};
+      const responseData = (responsePayload.data && typeof responsePayload.data === "object")
+        ? (responsePayload.data as Record<string, unknown>)
+        : null;
 
-      const foodId = editingFood?.id ?? json?.data?.foodId;
+      const foodId = editingFood?.id ?? (typeof responseData?.foodId === "string" ? responseData.foodId : null);
 
       if (options?.publishAfterSave && foodId) {
         const startIso = startIsoRequired;
@@ -756,15 +790,18 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
           body: JSON.stringify({ isActive: true }),
         });
         if (!statusRes.ok) {
-          const statusJson = await statusRes.json();
-          throw new Error(statusJson?.error?.message ?? "Yemek durumu güncellenemedi");
+          const statusJson = await parseResponseBodySafe(statusRes);
+          throw new Error(resolveApiMessage(statusJson, "Yemek durumu güncellenemedi"));
         }
 
         let hasVisibleLot = false;
         const lotsRes = await authedFetch(`/v1/seller/lots?foodId=${foodId}`);
         if (lotsRes.ok) {
-          const lotsJson = await lotsRes.json();
-          const lots = Array.isArray(lotsJson?.data) ? lotsJson.data : [];
+          const lotsJson = await parseResponseBodySafe(lotsRes);
+          const lotsPayload = (lotsJson && typeof lotsJson === "object")
+            ? (lotsJson as Record<string, unknown>)
+            : {};
+          const lots = Array.isArray(lotsPayload.data) ? (lotsPayload.data as unknown[]) : [];
           const now = Date.now();
           hasVisibleLot = lots.some((lot: any) => {
             const status = String(lot?.status ?? "").toLowerCase();
@@ -795,9 +832,9 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
               notes: "mobile_publish",
             }),
           });
-          const lotJson = await lotRes.json();
+          const lotJson = await parseResponseBodySafe(lotRes);
           if (!lotRes.ok) {
-            throw new Error(lotJson?.error?.message ?? "Lot oluşturulamadı");
+            throw new Error(resolveApiMessage(lotJson, "Lot oluşturulamadı"));
           }
         }
       }
@@ -884,8 +921,8 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
         method: "PATCH",
         body: JSON.stringify({ isActive: !food.isActive }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? "Durum değiştirilemedi");
+      const json = await parseResponseBodySafe(res);
+      if (!res.ok) throw new Error(resolveApiMessage(json, "Durum değiştirilemedi"));
       await loadFoods();
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Durum değiştirilemedi");

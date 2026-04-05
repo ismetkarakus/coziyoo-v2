@@ -60,3 +60,9 @@ Unless explicitly requested by the user, do not modify:
 - Slogan Home ekraninda arama cubugunun altindaki hero kartta kalir.
 - Mobil metinlerde tek kaynak: `apps/mobile/src/copy/brandCopy.ts`
 - Detayli kilit dokumani: `BRAND_VOICE_LOCK.md`
+
+## 9) API Response Contract (User Rule - Persistent)
+- HTML response kullanmiyoruz.
+- Tum API endpointleri `application/json` donmeli.
+- Hata durumlarinda da JSON donmeli (`{ error: { code, message } }`).
+- Mobile/Admin istemcileri JSON disi response'u hata kabul eder ve fallback mesaj gosterir.
