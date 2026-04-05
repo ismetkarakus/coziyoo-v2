@@ -118,3 +118,10 @@ yarn-debug.*
 yarn-error.*
 pnpm-debug.log*
 .runtime/voice-agent-worker-heartbeat.json
+
+# iOS / Xcode artifacts (voice-agent mobile)
+apps/voice-agent/mobile/ios/Pods/
+apps/voice-agent/mobile/ios/build/
+apps/voice-agent/mobile/ios/.xcode.env.local
+apps/voice-agent/mobile/ios/**/xcuserdata/
+apps/voice-agent/mobile/ios/**/*.xcuserstate
