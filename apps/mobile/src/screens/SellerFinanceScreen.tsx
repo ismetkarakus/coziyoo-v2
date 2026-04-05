@@ -43,6 +43,7 @@ type SellerBankAccount = {
 type WalletTab = "overview" | "transactions" | "withdraw";
 
 const MIN_PAYOUT_AMOUNT = 50;
+const QUICK_WITHDRAW_AMOUNTS = [100, 250, 500] as const;
 
 function parseApiDate(value?: string | null): Date | null {
   if (!value?.trim()) return null;
@@ -77,6 +78,16 @@ function formatMoney(value: number, currency: string): string {
   return `${amount.toFixed(2)} ${currency || "TRY"}`;
 }
 
+function formatAmountInput(value: number): string {
+  return value.toFixed(2).replace(".", ",");
+}
+
+function parseAmountInput(value: string): number {
+  const normalized = value.replace(/[^\d,.\-]/g, "").replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function normalizeErrorMessage(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
 }
@@ -105,6 +116,7 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
   const [iban, setIban] = useState("");
   const [holder, setHolder] = useState("");
   const [cardNumber, setCardNumber] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("0,00");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -275,6 +287,28 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
     return formatDate(next?.payoutDate);
   }, [payoutsSorted]);
 
+  const availableBalance = Number(balance?.availableBalance ?? 0);
+  const pendingBalance = Number(balance?.pendingPayoutAmount ?? 0);
+  const withdrawAmountValue = parseAmountInput(withdrawAmount);
+  const canRequestWithdraw =
+    withdrawAmountValue >= MIN_PAYOUT_AMOUNT && withdrawAmountValue <= availableBalance;
+
+  function setQuickWithdrawAmount(value: number) {
+    setWithdrawAmount(formatAmountInput(value));
+  }
+
+  function setMaxWithdrawAmount() {
+    setWithdrawAmount(formatAmountInput(Math.max(0, availableBalance)));
+  }
+
+  function handleWithdrawRequest() {
+    if (!canRequestWithdraw) {
+      Alert.alert("Hata", `Para çekme talebi için minimum ${formatMoney(MIN_PAYOUT_AMOUNT, currency)} olmalı.`);
+      return;
+    }
+    Alert.alert("Talep Alındı", `Para çekme talebin oluşturuldu: ${formatMoney(withdrawAmountValue, currency)}.`);
+  }
+
   return (
     <View style={styles.container}>
       <ScreenHeader title="Cüzdanım" onBack={onBack} />
@@ -299,7 +333,7 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
             onPress={() => setActiveTab("withdraw")}
           >
             <Ionicons name="cash-outline" size={12} color={activeTab === "withdraw" ? "#FFFFFF" : "#2E241C"} />
-            <Text style={[styles.tabText, activeTab === "withdraw" && styles.tabTextActive]}>Kart Bilgilerim</Text>
+            <Text style={[styles.tabText, activeTab === "withdraw" && styles.tabTextActive]}>Para Çek</Text>
           </TouchableOpacity>
         </View>
 
@@ -377,30 +411,68 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
         ) : null}
 
         {!loading && activeTab === "withdraw" ? (
-          <View style={styles.bankInfoCard}>
-            <View style={styles.bankInfoTitleRow}>
-              <Ionicons name="business-outline" size={13} color="#3B3129" />
-              <Text style={styles.bankInfoTitle}>Kart Bilgilerim</Text>
+          <>
+            <View style={styles.withdrawSummaryCard}>
+              <View style={styles.withdrawSummaryRow}>
+                <Text style={styles.withdrawSummaryLabel}>Mevcut Bakiye:</Text>
+                <Text style={styles.withdrawSummaryValue}>{formatMoney(availableBalance, currency)}</Text>
+              </View>
+              <View style={styles.withdrawSummaryRow}>
+                <Text style={styles.withdrawSummaryLabel}>Bekleyen Bakiye:</Text>
+                <Text style={styles.withdrawSummaryPending}>{formatMoney(pendingBalance, currency)}</Text>
+              </View>
             </View>
-            <TextInput
-              style={styles.input}
-              value={cardNumber}
-              onChangeText={setCardNumber}
-              placeholder="Kazanç Yatırma Hesap / Kart Numarası"
-              placeholderTextColor="#8A7A6A"
-              keyboardType="number-pad"
-            />
-            <TextInput
-              style={styles.input}
-              value={iban}
-              onChangeText={setIban}
-              placeholder="IBAN (TR...)"
-              placeholderTextColor="#8A7A6A"
-            />
-            <TouchableOpacity style={styles.saveBtn} onPress={() => void saveBankAccount()}>
-              <Text style={styles.saveText}>Kart Bilgilerini Kaydet</Text>
-            </TouchableOpacity>
-          </View>
+
+            <View style={styles.withdrawCard}>
+              <Text style={styles.withdrawTitle}>Çekmek İstediğiniz Tutar</Text>
+              <View style={styles.amountBox}>
+                <TextInput
+                  style={styles.amountInput}
+                  value={withdrawAmount}
+                  onChangeText={setWithdrawAmount}
+                  keyboardType="decimal-pad"
+                  placeholder="0,00"
+                  placeholderTextColor="#8B847A"
+                  textAlign="center"
+                />
+              </View>
+
+              <View style={styles.amountChipRow}>
+                {QUICK_WITHDRAW_AMOUNTS.map((amount) => (
+                  <TouchableOpacity
+                    key={`withdraw-${amount}`}
+                    style={styles.amountChip}
+                    onPress={() => setQuickWithdrawAmount(amount)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.amountChipText}>₺{amount}</Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity style={styles.amountChip} onPress={setMaxWithdrawAmount} activeOpacity={0.85}>
+                  <Text style={styles.amountChipText}>Tümü</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.withdrawInfoBox}>
+                <View style={styles.withdrawInfoTitleRow}>
+                  <Ionicons name="information-circle" size={13} color="#706759" />
+                  <Text style={styles.withdrawInfoTitle}>Bilgilendirme</Text>
+                </View>
+                <Text style={styles.withdrawInfoLine}>· Minimum çekim tutarı: {formatMoney(MIN_PAYOUT_AMOUNT, currency)}</Text>
+                <Text style={styles.withdrawInfoLine}>· İşlem süresi: 1-3 iş günü</Text>
+                <Text style={styles.withdrawInfoLine}>· Haftalık otomatik ödeme: Pazartesi günleri</Text>
+                <Text style={styles.withdrawInfoLine}>· İşlem ücreti: Ücretsiz</Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.withdrawRequestBtn, !canRequestWithdraw && styles.withdrawRequestBtnDisabled]}
+                onPress={handleWithdrawRequest}
+                activeOpacity={0.88}
+              >
+                <Text style={styles.withdrawRequestBtnText}>Para Çekme Talebi Oluştur</Text>
+              </TouchableOpacity>
+            </View>
+          </>
         ) : null}
       </ScrollView>
     </View>
@@ -510,6 +582,80 @@ const styles = StyleSheet.create({
   txnStatusOk: { color: "#1B7A42" },
   txnStatusPending: { color: "#B45309" },
   txnAmount: { color: "#2E241C", fontWeight: "900", marginTop: 6, fontSize: 16 },
+
+  withdrawSummaryCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E3DBCF",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 6,
+  },
+  withdrawSummaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  withdrawSummaryLabel: { color: "#676056", fontSize: 17, fontWeight: "600" },
+  withdrawSummaryValue: { color: "#16A34A", fontSize: 18, fontWeight: "900" },
+  withdrawSummaryPending: { color: "#F59E0B", fontSize: 18, fontWeight: "900" },
+
+  withdrawCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E3DBCF",
+    padding: 12,
+  },
+  withdrawTitle: { color: "#2E241C", fontWeight: "800", fontSize: 17, marginBottom: 8 },
+  amountBox: {
+    backgroundColor: "#ECE7DF",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  amountInput: {
+    color: "#7D766D",
+    fontSize: 34,
+    fontWeight: "800",
+    width: "100%",
+    textAlign: "center",
+    paddingVertical: 2,
+  },
+  amountChipRow: { marginTop: 10, flexDirection: "row", gap: 8 },
+  amountChip: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#BEB4A8",
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 9,
+  },
+  amountChipText: { color: "#2E241C", fontWeight: "700", fontSize: 13 },
+  withdrawInfoBox: {
+    marginTop: 12,
+    backgroundColor: "#F0ECE6",
+    borderWidth: 1,
+    borderColor: "#D8D0C4",
+    borderRadius: 10,
+    padding: 9,
+    gap: 4,
+  },
+  withdrawInfoTitleRow: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 2 },
+  withdrawInfoTitle: { color: "#4E443A", fontWeight: "700", fontSize: 15 },
+  withdrawInfoLine: { color: "#7A7064", fontSize: 14, fontWeight: "500" },
+  withdrawRequestBtn: {
+    marginTop: 12,
+    backgroundColor: "#A9B5AA",
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+  },
+  withdrawRequestBtnDisabled: { opacity: 0.6 },
+  withdrawRequestBtnText: { color: "#FFFFFF", fontWeight: "800", fontSize: 17 },
 
   bankInfoCard: {
     backgroundColor: "#FFFFFF",
