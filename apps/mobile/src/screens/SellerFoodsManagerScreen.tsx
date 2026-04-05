@@ -126,11 +126,13 @@ export default function SellerFoodsManagerScreen({ auth, onBack, onOpenFoodsForm
         <TouchableOpacity onPress={onBack} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={theme.text} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.addBtn} activeOpacity={0.85} onPress={() => onOpenFoodsForm("add")}>
-          <Text style={styles.addBtnText}>Yemek Ekle</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <Text style={styles.pageTitle}>Yemek Düzenle</Text>
+          <TouchableOpacity style={styles.addBtn} activeOpacity={0.85} onPress={() => onOpenFoodsForm("add")}>
+            <Text style={styles.addBtnText}>Yemek Ekle</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-      <Text style={styles.pageTitle}>Yemek Düzenle</Text>
 
       <FlatList
         data={foods}
@@ -200,6 +202,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   addBtn: {
     height: 36,
     borderRadius: 999,
@@ -213,9 +220,8 @@ const styles = StyleSheet.create({
     color: "#2E241C",
     fontWeight: "900",
     fontSize: 19,
-    textAlign: "center",
-    marginTop: 8,
-    marginBottom: 2,
+    marginTop: 0,
+    marginBottom: 0,
   },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   inlineLoading: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 4 },
