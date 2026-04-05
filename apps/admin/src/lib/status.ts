@@ -27,9 +27,9 @@ export function normalizeDeliveryType(value: unknown): "pickup" | "delivery" | "
   return "";
 }
 
-export function deliveryTypeLabel(value: unknown): "Teslimat" | "Gel Al" | "-" {
+export function deliveryTypeLabel(value: unknown): "Getir" | "Gel Al" | "-" {
   const normalized = normalizeDeliveryType(value);
-  if (normalized === "delivery") return "Teslimat";
+  if (normalized === "delivery") return "Getir";
   if (normalized === "pickup") return "Gel Al";
   return "-";
 }

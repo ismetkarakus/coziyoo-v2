@@ -3176,11 +3176,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       <strong>
                         {food.deliveryOptions
                           ? food.deliveryOptions.pickup && food.deliveryOptions.delivery
-                            ? "Gel Al + Teslimat"
+                            ? "Gel Al + Getir"
                             : food.deliveryOptions.pickup
                               ? "Gel Al"
                               : food.deliveryOptions.delivery
-                                ? "Teslimat"
+                                ? "Getir"
                                 : "-"
                           : "-"}
                       </strong>
