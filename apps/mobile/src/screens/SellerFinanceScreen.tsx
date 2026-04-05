@@ -298,8 +298,8 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
             style={[styles.tabBtn, activeTab === "withdraw" && styles.tabBtnActive]}
             onPress={() => setActiveTab("withdraw")}
           >
-            <Ionicons name="card-outline" size={12} color={activeTab === "withdraw" ? "#FFFFFF" : "#2E241C"} />
-            <Text style={[styles.tabText, activeTab === "withdraw" && styles.tabTextActive]}>Kart Detaylarım</Text>
+            <Ionicons name="cash-outline" size={12} color={activeTab === "withdraw" ? "#FFFFFF" : "#2E241C"} />
+            <Text style={[styles.tabText, activeTab === "withdraw" && styles.tabTextActive]}>Para Çek</Text>
           </TouchableOpacity>
         </View>
 
@@ -320,7 +320,7 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
                 </View>
               </View>
               <TouchableOpacity style={styles.withdrawBtn} onPress={() => setActiveTab("withdraw")} activeOpacity={0.9}>
-                <Text style={styles.withdrawBtnText}>Para Çek</Text>
+                <Text style={styles.withdrawBtnText}>Kart Detaylarım</Text>
                 <Ionicons name="arrow-forward" size={12} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
