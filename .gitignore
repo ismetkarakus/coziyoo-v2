@@ -90,6 +90,15 @@ apps/voice-agent/.venv/
 .expo-shared
 .expo/web
 .expo/types
+apps/mobile/android/.gradle/
+apps/mobile/android/app/build/
+apps/mobile/android/build/
+apps/mobile/ios/build/
+apps/mobile/ios/DerivedData/
+apps/mobile/ios/Pods/
+apps/mobile/ios/.symlinks/
+apps/mobile/ios/**/*.xcuserstate
+apps/mobile/ios/**/xcuserdata/
 *.jks
 *.p8
 *.p12
