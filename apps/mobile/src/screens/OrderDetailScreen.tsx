@@ -89,11 +89,12 @@ async function openAddressInMaps(address: string): Promise<void> {
   const query = address.trim();
   if (!query) return;
   const encoded = encodeURIComponent(query);
-  const googleAppDirectionsUrl = Platform.OS === 'ios'
-    ? `comgooglemaps://?daddr=${encoded}&directionsmode=driving`
-    : `google.navigation:q=${encoded}&mode=d`;
+  const appleDirectionsUrl = `http://maps.apple.com/?daddr=${encoded}&dirflg=d`;
+  const googleNavUrl = `google.navigation:q=${encoded}&mode=d`;
   const googleDirectionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encoded}&travelmode=driving`;
-  const candidates = [googleAppDirectionsUrl, googleDirectionsUrl];
+  const candidates = Platform.OS === 'ios'
+    ? [appleDirectionsUrl]
+    : [googleNavUrl, googleDirectionsUrl];
   for (const url of candidates) {
     const supported = await Linking.canOpenURL(url);
     if (!supported) continue;
