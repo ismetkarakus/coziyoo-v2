@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   tabBtn: {
     flex: 1,
     borderRadius: 999,
-    paddingVertical: 8,
+    paddingVertical: 7,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E9E5DE",
   },
   tabBtnActive: { backgroundColor: "#8EA08A" },
-  tabText: { color: "#2E241C", fontWeight: "700", fontSize: 12 },
+  tabText: { color: "#2E241C", fontWeight: "700", fontSize: 11 },
   tabTextActive: { color: "#FFFFFF" },
 
   balanceCard: {
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   },
   withdrawBtnText: { color: "#FFFFFF", fontWeight: "700", fontSize: 12 },
 
-  sectionTitle: { color: "#2E241C", fontSize: 26, fontWeight: "800", marginTop: 6 },
+  sectionTitle: { color: "#2E241C", fontSize: 20, fontWeight: "800", marginTop: 6 },
   statsRow: { flexDirection: "row", gap: 8 },
   statCard: {
     flex: 1,
