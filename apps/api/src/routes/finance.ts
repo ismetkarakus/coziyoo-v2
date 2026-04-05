@@ -43,6 +43,7 @@ const SellerBankAccountSchema = z.object({
   iban: z.string().trim().min(10).max(34),
   accountHolderName: z.string().trim().min(3).max(120),
   bankCode: z.string().trim().min(2).max(20).optional(),
+  cardNumber: z.string().trim().min(12).max(32).optional(),
 });
 
 const PayoutBatchQuerySchema = z.object({
@@ -224,6 +225,7 @@ sellerFinanceRouter.put("/:sellerId/bank-account", requireAuth("app"), async (re
   }
 
   const input = parsed.data;
+  const storedBankCode = (input.cardNumber?.trim() || input.bankCode) ?? null;
   const upsert = await pool.query(
     `INSERT INTO seller_bank_accounts
       (seller_id, iban, account_holder_name, bank_code, verification_status, is_active, payout_hold, created_at, updated_at)
@@ -236,7 +238,7 @@ sellerFinanceRouter.put("/:sellerId/bank-account", requireAuth("app"), async (re
                    is_active = TRUE,
                    updated_at = now()
      RETURNING seller_id, iban, account_holder_name, bank_code, verification_status, is_active, payout_hold, updated_at::text`,
-    [sellerScope.sellerId, input.iban, input.accountHolderName, input.bankCode ?? null]
+    [sellerScope.sellerId, input.iban, input.accountHolderName, storedBankCode]
   );
 
   return res.json({
@@ -245,10 +247,52 @@ sellerFinanceRouter.put("/:sellerId/bank-account", requireAuth("app"), async (re
       iban: upsert.rows[0].iban,
       accountHolderName: upsert.rows[0].account_holder_name,
       bankCode: upsert.rows[0].bank_code,
+      cardNumber: upsert.rows[0].bank_code,
       verificationStatus: upsert.rows[0].verification_status,
       isActive: upsert.rows[0].is_active,
       payoutHold: upsert.rows[0].payout_hold,
       updatedAt: upsert.rows[0].updated_at,
+    },
+  });
+});
+
+sellerFinanceRouter.get("/:sellerId/bank-account", requireAuth("app"), async (req, res) => {
+  const sellerScope = await ensureSellerScope(req, res);
+  if (!sellerScope.ok) return;
+
+  const found = await pool.query<{
+    seller_id: string;
+    iban: string;
+    account_holder_name: string;
+    bank_code: string | null;
+    verification_status: string;
+    is_active: boolean;
+    payout_hold: boolean;
+    updated_at: string;
+  }>(
+    `SELECT seller_id, iban, account_holder_name, bank_code, verification_status, is_active, payout_hold, updated_at::text
+     FROM seller_bank_accounts
+     WHERE seller_id = $1
+     LIMIT 1`,
+    [sellerScope.sellerId],
+  );
+
+  if ((found.rowCount ?? 0) === 0) {
+    return res.json({ data: null });
+  }
+
+  const row = found.rows[0];
+  return res.json({
+    data: {
+      sellerId: row.seller_id,
+      iban: row.iban,
+      accountHolderName: row.account_holder_name,
+      bankCode: row.bank_code,
+      cardNumber: row.bank_code,
+      verificationStatus: row.verification_status,
+      isActive: row.is_active,
+      payoutHold: row.payout_hold,
+      updatedAt: row.updated_at,
     },
   });
 });

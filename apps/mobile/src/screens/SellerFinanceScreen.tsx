@@ -33,6 +33,12 @@ type SellerPayout = {
   payoutDate: string;
 };
 
+type SellerBankAccount = {
+  iban: string;
+  accountHolderName: string;
+  cardNumber?: string | null;
+};
+
 type WalletTab = "overview" | "transactions" | "withdraw";
 
 const MIN_PAYOUT_AMOUNT = 50;
@@ -80,6 +86,7 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
   const [payouts, setPayouts] = useState<SellerPayout[]>([]);
   const [iban, setIban] = useState("");
   const [holder, setHolder] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -113,20 +120,27 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
       const baseUrl = settings.apiUrl;
       setApiUrl(baseUrl);
       const sellerId = currentAuth.userId;
-      const [summaryRes, balanceRes, payoutsRes] = await Promise.all([
+      const [summaryRes, balanceRes, payoutsRes, bankRes] = await Promise.all([
         authedFetch(`/v1/sellers/${sellerId}/finance/summary`, undefined, baseUrl),
         authedFetch(`/v1/sellers/${sellerId}/finance/balance`, undefined, baseUrl),
         authedFetch(`/v1/sellers/${sellerId}/finance/payouts?page=1&pageSize=20`, undefined, baseUrl),
+        authedFetch(`/v1/sellers/${sellerId}/bank-account`, undefined, baseUrl),
       ]);
       const summaryJson = await summaryRes.json();
       const balanceJson = await balanceRes.json();
       const payoutsJson = await payoutsRes.json();
+      const bankJson = await bankRes.json();
       if (!summaryRes.ok) throw new Error(summaryJson?.error?.message ?? "Finans özeti alınamadı");
       if (!balanceRes.ok) throw new Error(balanceJson?.error?.message ?? "Bakiye alınamadı");
       if (!payoutsRes.ok) throw new Error(payoutsJson?.error?.message ?? "Payout listesi alınamadı");
+      if (!bankRes.ok) throw new Error(bankJson?.error?.message ?? "Banka hesabı alınamadı");
       setSummary(summaryJson?.data ?? null);
       setBalance(balanceJson?.data ?? null);
       setPayouts(Array.isArray(payoutsJson?.data) ? payoutsJson.data : []);
+      const bankData = (bankJson?.data ?? null) as SellerBankAccount | null;
+      setIban(typeof bankData?.iban === "string" ? bankData.iban : "");
+      setHolder(typeof bankData?.accountHolderName === "string" ? bankData.accountHolderName : "");
+      setCardNumber(typeof bankData?.cardNumber === "string" ? bankData.cardNumber : "");
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Finans yüklenemedi");
     } finally {
@@ -146,7 +160,11 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
       }
       const res = await authedFetch(`/v1/sellers/${currentAuth.userId}/bank-account`, {
         method: "PUT",
-        body: JSON.stringify({ iban: iban.trim(), accountHolderName: holder.trim() }),
+        body: JSON.stringify({
+          iban: iban.trim(),
+          accountHolderName: holder.trim(),
+          cardNumber: cardNumber.trim() || undefined,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? "Banka hesabı kaydedilemedi");
@@ -304,6 +322,14 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
             <Text style={styles.withdrawMeta}>Bekleyen: {formatMoney(balance?.pendingPayoutAmount ?? 0, currency)}</Text>
             <Text style={styles.withdrawMeta}>Minimum: {formatMoney(MIN_PAYOUT_AMOUNT, currency)}</Text>
             <TextInput style={styles.input} value={iban} onChangeText={setIban} placeholder="IBAN (TR...)" placeholderTextColor="#8A7A6A" />
+            <TextInput
+              style={styles.input}
+              value={cardNumber}
+              onChangeText={setCardNumber}
+              placeholder="Kart Numarası"
+              placeholderTextColor="#8A7A6A"
+              keyboardType="number-pad"
+            />
             <TextInput style={styles.input} value={holder} onChangeText={setHolder} placeholder="Hesap sahibi" placeholderTextColor="#8A7A6A" />
             <TouchableOpacity style={styles.saveBtn} onPress={() => void saveBankAccount()}>
               <Text style={styles.saveText}>Banka Hesabını Kaydet</Text>
