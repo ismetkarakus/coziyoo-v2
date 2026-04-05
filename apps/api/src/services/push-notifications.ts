@@ -14,6 +14,21 @@ type Queryable = {
   query: typeof pool.query;
 };
 
+type ExpoPushMessage = {
+  to: string;
+  sound: "default";
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+};
+
+type ExpoPushTicket = {
+  status?: "ok" | "error";
+  id?: string;
+  message?: string;
+  details?: { error?: string; [key: string]: unknown };
+};
+
 export async function createNotificationEventTx(
   queryable: Queryable,
   input: {
@@ -58,7 +73,7 @@ export async function flushPushNotifications(payloads: PushNotificationPayload[]
     tokenByUser.set(row.user_id, list);
   }
 
-  const messages: Array<Record<string, unknown>> = [];
+  const messages: ExpoPushMessage[] = [];
   for (const payload of payloads) {
     const tokens = tokenByUser.get(payload.userId) ?? [];
     for (const token of tokens) {
@@ -91,6 +106,35 @@ export async function flushPushNotifications(payloads: PushNotificationPayload[]
       if (!response.ok) {
         const text = await response.text();
         console.error("[push] expo send failed", response.status, text.slice(0, 300));
+        continue;
+      }
+
+      const responseJson = await response.json().catch(() => null) as { data?: ExpoPushTicket[] } | null;
+      const tickets = Array.isArray(responseJson?.data) ? responseJson.data : [];
+      if (tickets.length === 0) {
+        continue;
+      }
+
+      const staleTokens = new Set<string>();
+      for (let j = 0; j < tickets.length; j += 1) {
+        const ticket = tickets[j];
+        if (ticket?.status !== "error") continue;
+        const token = String(chunk[j]?.to ?? "");
+        const errorCode = String(ticket?.details?.error ?? "");
+        const errorMessage = String(ticket?.message ?? "unknown_error");
+        console.error("[push] expo ticket error", { token, errorCode, errorMessage });
+        if (errorCode === "DeviceNotRegistered" && token) {
+          staleTokens.add(token);
+        }
+      }
+
+      if (staleTokens.size > 0) {
+        await pool.query(
+          `UPDATE user_device_tokens
+           SET is_active = FALSE, updated_at = now()
+           WHERE token = ANY($1::text[])`,
+          [Array.from(staleTokens)],
+        );
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -11,6 +11,7 @@ import {
   BackHandler,
   KeyboardAvoidingView,
 } from 'react-native';
+import Constants from 'expo-constants';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import HomeScreen from './src/screens/HomeScreen';
@@ -60,7 +61,7 @@ type NotificationsModule = {
   }) => void;
   getPermissionsAsync: () => Promise<{ status: string }>;
   requestPermissionsAsync: () => Promise<{ status: string }>;
-  getExpoPushTokenAsync: () => Promise<{ data: string }>;
+  getExpoPushTokenAsync: (options?: { projectId?: string }) => Promise<{ data: string }>;
   addNotificationResponseReceivedListener: (
     listener: (response: { notification: { request: { content: { data: Record<string, unknown> } } } }) => void,
   ) => NotificationSubscription;
@@ -88,15 +89,21 @@ if (Notifications) {
 async function registerPushToken(auth: AuthSession, apiUrl: string): Promise<string | null> {
   if (!Notifications) return null;
   try {
+    const projectId =
+      (Constants as any)?.easConfig?.projectId
+      ?? (Constants.expoConfig as any)?.extra?.eas?.projectId
+      ?? null;
+
     const { status: existing } = await Notifications.getPermissionsAsync();
     const { status } = existing === 'granted'
       ? { status: existing }
       : await Notifications.requestPermissionsAsync();
     if (status !== 'granted') return null;
 
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const tokenData = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
     const token = tokenData.data;
     const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+    const appVersion = String(Constants.expoConfig?.version ?? '').trim() || undefined;
 
     await fetch(`${apiUrl}/v1/notifications/device-token`, {
       method: 'PUT',
@@ -104,11 +111,12 @@ async function registerPushToken(auth: AuthSession, apiUrl: string): Promise<str
         'Content-Type': 'application/json',
         Authorization: `Bearer ${auth.accessToken}`,
       },
-      body: JSON.stringify({ token, platform }),
+      body: JSON.stringify({ token, platform, appVersion }),
     });
     return token;
-  } catch {
+  } catch (error) {
     // Push registration is best-effort; never block the user
+    console.warn('[push] register failed', error);
     return null;
   }
 }
