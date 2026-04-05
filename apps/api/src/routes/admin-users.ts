@@ -3709,6 +3709,15 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
     seller_name: string | null;
     seller_email: string | null;
     delivery_type: string | null;
+    requested_delivery_type: string | null;
+    active_delivery_type: string | null;
+    seller_decision_state: string | null;
+    seller_eta_minutes: number | null;
+    seller_promised_at: string | null;
+    seller_delivery_note: string | null;
+    seller_delivery_terms_snapshot: string | null;
+    approved_at: string | null;
+    payment_captured_at: string | null;
     delivery_address_json: unknown;
     status: string;
     total_price: string;
@@ -3728,6 +3737,15 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
        su.display_name AS seller_name,
        su.email AS seller_email,
        o.delivery_type,
+       o.requested_delivery_type,
+       o.active_delivery_type,
+       o.seller_decision_state,
+       o.seller_eta_minutes,
+       o.seller_promised_at::text AS seller_promised_at,
+       o.seller_delivery_note,
+       o.seller_delivery_terms_snapshot,
+       o.approved_at::text AS approved_at,
+       o.payment_captured_at::text AS payment_captured_at,
        o.delivery_address_json,
        o.status,
        o.total_price::text,
@@ -3782,6 +3800,15 @@ adminUserManagementRouter.get("/users/:id/buyer-orders", requireAuth("admin"), a
       sellerName: row.seller_name,
       sellerEmail: row.seller_email,
       deliveryType: normalizeDeliveryType(row.delivery_type) ?? row.delivery_type,
+      requestedDeliveryType: normalizeDeliveryType(row.requested_delivery_type) ?? row.requested_delivery_type,
+      activeDeliveryType: normalizeDeliveryType(row.active_delivery_type) ?? row.active_delivery_type,
+      sellerDecisionState: row.seller_decision_state,
+      sellerEtaMinutes: row.seller_eta_minutes,
+      sellerPromisedAt: row.seller_promised_at,
+      sellerDeliveryNote: row.seller_delivery_note,
+      sellerDeliveryTermsSnapshot: row.seller_delivery_terms_snapshot,
+      approvedAt: row.approved_at,
+      paymentCapturedAt: row.payment_captured_at,
       deliveryAddress: row.delivery_address_json ?? null,
       status: row.status,
       totalAmount: Number(row.total_price),
@@ -3835,6 +3862,15 @@ adminUserManagementRouter.get("/users/:id/seller-orders", requireAuth("admin"), 
     buyer_name: string | null;
     buyer_email: string | null;
     delivery_type: string | null;
+    requested_delivery_type: string | null;
+    active_delivery_type: string | null;
+    seller_decision_state: string | null;
+    seller_eta_minutes: number | null;
+    seller_promised_at: string | null;
+    seller_delivery_note: string | null;
+    seller_delivery_terms_snapshot: string | null;
+    approved_at: string | null;
+    payment_captured_at: string | null;
     status: string;
     total_price: string;
     payment_completed: boolean;
@@ -3853,6 +3889,15 @@ adminUserManagementRouter.get("/users/:id/seller-orders", requireAuth("admin"), 
        bu.display_name AS buyer_name,
        bu.email AS buyer_email,
        o.delivery_type,
+       o.requested_delivery_type,
+       o.active_delivery_type,
+       o.seller_decision_state,
+       o.seller_eta_minutes,
+       o.seller_promised_at::text AS seller_promised_at,
+       o.seller_delivery_note,
+       o.seller_delivery_terms_snapshot,
+       o.approved_at::text AS approved_at,
+       o.payment_captured_at::text AS payment_captured_at,
        o.status,
        o.total_price::text,
        o.payment_completed,
@@ -3906,6 +3951,15 @@ adminUserManagementRouter.get("/users/:id/seller-orders", requireAuth("admin"), 
       buyerName: row.buyer_name,
       buyerEmail: row.buyer_email,
       deliveryType: normalizeDeliveryType(row.delivery_type) ?? row.delivery_type,
+      requestedDeliveryType: normalizeDeliveryType(row.requested_delivery_type) ?? row.requested_delivery_type,
+      activeDeliveryType: normalizeDeliveryType(row.active_delivery_type) ?? row.active_delivery_type,
+      sellerDecisionState: row.seller_decision_state,
+      sellerEtaMinutes: row.seller_eta_minutes,
+      sellerPromisedAt: row.seller_promised_at,
+      sellerDeliveryNote: row.seller_delivery_note,
+      sellerDeliveryTermsSnapshot: row.seller_delivery_terms_snapshot,
+      approvedAt: row.approved_at,
+      paymentCapturedAt: row.payment_captured_at,
       status: row.status,
       totalAmount: Number(row.total_price),
       paymentCompleted: row.payment_completed,

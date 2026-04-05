@@ -21,7 +21,7 @@ import { resolveSellerDetailTab } from "../../lib/routing";
 import { fetchAllAdminLots, lotLifecycleLabel, lotLifecycleClass, computeFoodLotDiff, computeAddedItems, toReadableText } from "../../lib/lots";
 import { foodMetadataByName, resolveFoodIngredients } from "../../lib/food";
 import { printModalContent } from "../../lib/print";
-import { deliveryTypeLabel } from "../../lib/status";
+import { deliveryTypeLabel, orderStatusLabel, sellerDecisionStateLabel } from "../../lib/status";
 import type { Language, ApiError, Dictionary } from "../../types/core";
 import type { SellerDetailTab } from "../../types/seller";
 import type {
@@ -98,6 +98,15 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
       buyerName: string | null;
       buyerEmail: string | null;
       deliveryType: string | null;
+      requestedDeliveryType: string | null;
+      activeDeliveryType: string | null;
+      sellerDecisionState: string | null;
+      sellerEtaMinutes: number | null;
+      sellerPromisedAt: string | null;
+      sellerDeliveryNote: string | null;
+      sellerDeliveryTermsSnapshot: string | null;
+      approvedAt: string | null;
+      paymentCapturedAt: string | null;
       status: string;
       totalAmount: number;
       paymentCompleted: boolean;
@@ -820,6 +829,22 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
     return deliveryTypeLabel(value);
   };
 
+  const orderStatusGroup = (order: {
+    status: string;
+    sellerDecisionState?: string | null;
+    activeDeliveryType?: string | null;
+    requestedDeliveryType?: string | null;
+    deliveryType?: string | null;
+  }) => {
+    const rawStatus = String(order.status ?? "").toLowerCase();
+    if (["rejected", "cancelled"].includes(rawStatus)) return "cancelled";
+    if (["delivered", "completed"].includes(rawStatus)) return "delivered";
+    if (String(order.sellerDecisionState ?? "").toLowerCase() === "approved" || ["seller_approved", "paid", "preparing", "ready", "in_delivery", "approaching", "at_door"].includes(rawStatus)) {
+      return "confirmed";
+    }
+    return "pending";
+  };
+
   const toLocalDateKey = (value: string | null | undefined) => {
     const date = new Date(String(value ?? ""));
     if (Number.isNaN(date.getTime())) return "";
@@ -832,7 +857,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
   const filteredSellerOrders = useMemo(() => {
     const query = ordersSearch.trim().toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
     return sellerOrders.filter((order) => {
-      const statusMatches = ordersStatusFilter === "all" || String(order.status ?? "").toLowerCase() === ordersStatusFilter;
+      const statusMatches = ordersStatusFilter === "all" || orderStatusGroup(order) === ordersStatusFilter;
       const paymentMatches = ordersPaymentFilter === "all" || paymentStateKey(order.paymentStatus) === ordersPaymentFilter;
       if (!statusMatches || !paymentMatches) return false;
       if (!query) return true;
@@ -844,7 +869,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         order.buyerName ?? "",
         order.buyerEmail ?? "",
         order.buyerId ?? "",
-        deliveryTypeText(order.deliveryType),
+        deliveryTypeText(order.activeDeliveryType ?? order.requestedDeliveryType ?? order.deliveryType),
+        sellerDecisionStateLabel(order.sellerDecisionState),
+        orderStatusLabel(order.status, order.activeDeliveryType ?? order.requestedDeliveryType ?? order.deliveryType),
         foods,
       ].join(" ").toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
       return haystack.includes(query);
@@ -1526,11 +1553,11 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
         formatTableDateTime(order.createdAt),
         order.orderNo,
         order.buyerName ?? order.buyerEmail ?? order.buyerId,
-        deliveryTypeText(order.deliveryType),
+        deliveryTypeText(order.activeDeliveryType ?? order.requestedDeliveryType ?? order.deliveryType),
         foods || "-",
         formatCurrency(Number(order.totalAmount ?? 0), language),
         paymentText,
-        order.status,
+        orderStatusLabel(order.status, order.activeDeliveryType ?? order.requestedDeliveryType ?? order.deliveryType),
       ];
     });
 
@@ -2728,7 +2755,7 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                       <th>Tarih / Saat</th>
                       <th>Sipariş No</th>
                       <th>Alıcı</th>
-                      <th>{language === "tr" ? "Teslimat" : "Delivery"}</th>
+                      <th>{language === "tr" ? "Plan" : "Plan"}</th>
                       <th>Yemekler</th>
                       <th>Tutar</th>
                       <th>Ödeme</th>
@@ -2738,6 +2765,9 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                   <tbody>
                     {filteredSellerOrders.map((order) => {
                       const paymentText = paymentStateText(order.paymentStatus);
+                      const deliveryText = deliveryTypeText(order.activeDeliveryType ?? order.requestedDeliveryType ?? order.deliveryType);
+                      const decisionText = sellerDecisionStateLabel(order.sellerDecisionState);
+                      const statusText = orderStatusLabel(order.status, order.activeDeliveryType ?? order.requestedDeliveryType ?? order.deliveryType);
                       const foods = Array.isArray(order.items)
                         ? order.items.map((item) => `${String(item.name ?? "-")} x${Number(item.quantity ?? 0)}`).join(", ")
                         : "-";
@@ -2769,11 +2799,16 @@ function SellerDetailScreen({ id, isSuperAdmin, dict, language }: { id: string; 
                               </Link>
                             ) : (order.buyerName ?? order.buyerEmail ?? "-")}
                           </td>
-                          <td>{deliveryTypeText(order.deliveryType)}</td>
+                          <td>
+                            <div className="buyer-login-cell">
+                              <strong>{deliveryText}</strong>
+                              <small>{`${decisionText}${order.sellerPromisedAt ? ` • ${formatTableDateTime(order.sellerPromisedAt)}` : ""}`}</small>
+                            </div>
+                          </td>
                           <td>{foods || "-"}</td>
                           <td>{formatCurrency(Number(order.totalAmount ?? 0), language)}</td>
                           <td>{paymentText}</td>
-                          <td>{order.status}</td>
+                          <td>{statusText}</td>
                         </tr>
                       );
                     })}

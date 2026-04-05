@@ -6723,6 +6723,21 @@ textarea:focus {
   padding-top: 10px;
 }
 
+.order-flow-admin-page {
+  display: grid;
+  gap: 16px;
+}
+
+.order-flow-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.order-flow-admin-grid .review-queue-summary-card {
+  min-height: 108px;
+}
+
 @media (max-width: 900px) {
   .records-order-modal {
     width: min(100%, calc(100vw - 28px));

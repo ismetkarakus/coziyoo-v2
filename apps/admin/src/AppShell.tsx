@@ -18,6 +18,7 @@ import ComplianceDocumentsPage from "./pages/ComplianceDocumentsPage";
 import SalesCommissionSettingsPage from "./pages/SalesCommissionSettingsPage";
 import AdminTestScenariosPage from "./pages/AdminTestScenariosPage";
 import SecurityPage from "./pages/SecurityPage";
+import OrderFlowAdminPage from "./pages/OrderFlowAdminPage";
 import { UserDetail } from "./pages/users/DefaultUserDetailScreen";
 import type { AdminUser, Language, Dictionary, ApiError, GlobalSearchResultItem, GlobalSearchResultKind } from "./types/core";
 
@@ -422,6 +423,7 @@ function AppShell({
               <SecurityPage language={language} />
             </div>
           ) : null}
+          {location.pathname === "/app/order-flow" ? <OrderFlowAdminPage language={language} /> : null}
           {location.pathname === "/app/api-tokens" ? <ApiTokensPage language={language} isSuperAdmin={isSuperAdmin} /> : null}
           {location.pathname === "/app/sales-commission-settings" ? <SalesCommissionSettingsPage language={language} /> : null}
           {location.pathname === "/app/test-scenarios" ? <AdminTestScenariosPage language={language} /> : null}
@@ -547,6 +549,7 @@ function TopNavTabs({
   const managementItems = [
     { to: "/app/users", active: pathname.startsWith("/app/users"), label: dict.menu.appUsers },
     { to: "/app/admins", active: pathname.startsWith("/app/admins"), label: dict.menu.admins },
+    { to: "/app/order-flow", active: pathname.startsWith("/app/order-flow"), label: dict.menu.orderFlow },
     { to: "/app/compliance-documents", active: pathname.startsWith("/app/compliance-documents"), label: dict.menu.complianceDocuments },
     { to: "/app/test-scenarios", active: pathname.startsWith("/app/test-scenarios"), label: dict.menu.testScenarios },
     { to: "/app/sales-commission-settings", active: pathname.startsWith("/app/sales-commission-settings"), label: dict.menu.salesCommissionSettings },

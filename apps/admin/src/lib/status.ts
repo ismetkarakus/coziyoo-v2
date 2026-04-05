@@ -6,6 +6,9 @@ export function paymentBadge(status: string): { text: string; cls: string } {
   if (normalized.includes("pending") || normalized.includes("wait")) {
     return { text: "Bekliyor", cls: "is-pending" };
   }
+  if (normalized.includes("confirm") || normalized.includes("capture") || normalized.includes("success") || normalized.includes("paid")) {
+    return { text: "Ödeme Alındı", cls: "is-success" };
+  }
   return { text: "Başarılı", cls: "is-success" };
 }
 
@@ -37,17 +40,31 @@ export function deliveryTypeLabel(value: unknown): "Getir" | "Gel Al" | "-" {
 export function orderStatusLabel(status: string, deliveryType?: string | null): string {
   const normalized = status.toLowerCase();
   const delivery = normalizeDeliveryType(deliveryType);
+  if (normalized === "pending_seller_approval") return "Satıcı Onayı Bekliyor";
+  if (normalized === "seller_approved") return "Sipariş Onaylandı";
+  if (normalized === "awaiting_payment") return "Ödeme Bekleniyor";
+  if (normalized === "paid") return "Ödeme Alındı";
+  if (normalized === "preparing") return "Hazırlanıyor";
   if (delivery === "pickup" && normalized === "ready") return "Hazırlandı, seni bekliyor";
   if (delivery === "pickup" && normalized === "in_delivery") return "Yola Çıktı";
   if (delivery === "pickup" && normalized === "approaching") return "Geliyorum";
   if (delivery === "pickup" && normalized === "at_door") return "Kapıdayım";
-  if (normalized.includes("cancel")) return "İptal";
+  if (normalized === "rejected" || normalized.includes("cancel")) return "İptal";
   if (normalized === "at_door") return "Kapıda";
   if (normalized.includes("deliver")) return "Teslim Edildi";
   if (normalized.includes("done")) return "Tamamlandı";
   if (normalized.includes("approve")) return "Onaylandı";
   if (normalized.includes("pending")) return "Bekliyor";
   return status;
+}
+
+export function sellerDecisionStateLabel(value: string | null | undefined): string {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (normalized === "pending") return "Karar Bekliyor";
+  if (normalized === "revised") return "Plan Güncellendi";
+  if (normalized === "approved") return "Onaylandı";
+  if (normalized === "rejected") return "İptal";
+  return normalized ? normalized.replace(/_/g, " ") : "-";
 }
 
 export function trendMeta(current: number, previous: number): { arrow: string; className: "is-up" | "is-down" | "is-flat" } {
