@@ -69,6 +69,14 @@ export const orderDisputeRouter = Router();
 export const adminDisputeRouter = Router();
 export const adminFinanceRouter = Router();
 
+async function hasTable(tableName: string): Promise<boolean> {
+  const result = await pool.query<{ exists: boolean }>(
+    "SELECT to_regclass($1) IS NOT NULL AS exists",
+    [tableName],
+  );
+  return Boolean(result.rows[0]?.exists);
+}
+
 adminCommissionRouter.get("/", requireAuth("admin"), async (_req, res) => {
   const current = await pool.query(
     `SELECT id, commission_rate::text, is_active, effective_from::text, created_by, created_at::text
@@ -260,6 +268,20 @@ sellerFinanceRouter.get("/:sellerId/finance/payouts", requireAuth("app"), async 
   const page = Math.max(1, Number(req.query.page ?? 1));
   const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize ?? 20)));
   const offset = (page - 1) * pageSize;
+
+  const payoutsTableReady = await hasTable("public.seller_payout_batches");
+  if (!payoutsTableReady) {
+    return res.json({
+      data: [],
+      pagination: {
+        mode: "offset",
+        page,
+        pageSize,
+        total: 0,
+        totalPages: 0,
+      },
+    });
+  }
 
   const list = await pool.query(
     `SELECT id, payout_date::text, currency, total_amount::text, status, transfer_reference, failure_reason, paid_at::text, created_at::text
