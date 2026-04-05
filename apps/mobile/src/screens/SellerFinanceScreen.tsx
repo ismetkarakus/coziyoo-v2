@@ -88,20 +88,6 @@ function parseAmountInput(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function maskIban(value: string): string {
-  const raw = value.trim().replace(/\s+/g, "");
-  if (!raw) return "TR** **** **** **** **** **** ****";
-  if (raw.length <= 6) return `${raw.slice(0, 2)}**`;
-  return `${raw.slice(0, 2)}** **** **** **** **** **** ${raw.slice(-4)}`;
-}
-
-function maskCardNumber(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  if (!digits) return "**** **** **** 1234";
-  if (digits.length <= 4) return `**** **** **** ${digits}`;
-  return `**** **** **** ${digits.slice(-4)}`;
-}
-
 function normalizeErrorMessage(value: unknown): string {
   return String(value ?? "").trim().toLowerCase();
 }
@@ -131,7 +117,6 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
   const [holder, setHolder] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("0,00");
-  const [bankDetailsExpanded, setBankDetailsExpanded] = useState(false);
 
   useEffect(() => setCurrentAuth(auth), [auth]);
 
@@ -491,49 +476,33 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
             <View style={styles.bankInfoCard}>
               <View style={styles.bankInfoTitleRow}>
                 <Ionicons name="business-outline" size={13} color="#3B3129" />
-                <Text style={styles.bankInfoTitle}>Banka Hesap Bilgileri</Text>
+                <Text style={styles.bankInfoTitle}>Kart Detaylarım</Text>
               </View>
-              <Text style={styles.bankInfoValue}>{cardNumber.trim() ? "Kart Bilgisi Girildi" : "Kart Bilgisi Eklenmedi"}</Text>
-              <Text style={styles.bankInfoValue}>{maskIban(iban)}</Text>
-              <Text style={styles.bankInfoHolder}>{holder.trim() || "Hesap sahibi eklenmedi"}</Text>
-              <TouchableOpacity
-                style={styles.bankInfoEditRow}
-                onPress={() => setBankDetailsExpanded((prev) => !prev)}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="create-outline" size={13} color="#8A7A6A" />
-                <Text style={styles.bankInfoEditText}>Hesap Bilgilerini Düzenle</Text>
+              <TextInput
+                style={styles.input}
+                value={iban}
+                onChangeText={setIban}
+                placeholder="IBAN (TR...)"
+                placeholderTextColor="#8A7A6A"
+              />
+              <TextInput
+                style={styles.input}
+                value={cardNumber}
+                onChangeText={setCardNumber}
+                placeholder="Kart Numarası"
+                placeholderTextColor="#8A7A6A"
+                keyboardType="number-pad"
+              />
+              <TextInput
+                style={styles.input}
+                value={holder}
+                onChangeText={setHolder}
+                placeholder="Hesap sahibi"
+                placeholderTextColor="#8A7A6A"
+              />
+              <TouchableOpacity style={styles.saveBtn} onPress={() => void saveBankAccount()}>
+                <Text style={styles.saveText}>Banka Hesabını Kaydet</Text>
               </TouchableOpacity>
-
-              {bankDetailsExpanded ? (
-                <View style={styles.bankEditForm}>
-                  <TextInput
-                    style={styles.input}
-                    value={iban}
-                    onChangeText={setIban}
-                    placeholder="IBAN (TR...)"
-                    placeholderTextColor="#8A7A6A"
-                  />
-                  <TextInput
-                    style={styles.input}
-                    value={cardNumber}
-                    onChangeText={setCardNumber}
-                    placeholder="Kart Numarası"
-                    placeholderTextColor="#8A7A6A"
-                    keyboardType="number-pad"
-                  />
-                  <TextInput
-                    style={styles.input}
-                    value={holder}
-                    onChangeText={setHolder}
-                    placeholder="Hesap sahibi"
-                    placeholderTextColor="#8A7A6A"
-                  />
-                  <TouchableOpacity style={styles.saveBtn} onPress={() => void saveBankAccount()}>
-                    <Text style={styles.saveText}>Hesap Bilgilerini Kaydet</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : null}
             </View>
           </>
         ) : null}
@@ -729,11 +698,6 @@ const styles = StyleSheet.create({
   },
   bankInfoTitleRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   bankInfoTitle: { color: "#3B3129", fontWeight: "800", fontSize: 18 },
-  bankInfoValue: { color: "#4C4339", fontWeight: "700", fontSize: 16, marginTop: 4 },
-  bankInfoHolder: { color: "#6E655A", fontSize: 16, marginTop: 2 },
-  bankInfoEditRow: { marginTop: 6, flexDirection: "row", alignItems: "center", gap: 4 },
-  bankInfoEditText: { color: "#8A7A6A", fontSize: 15, fontWeight: "600" },
-  bankEditForm: { marginTop: 8 },
 
   input: {
     backgroundColor: "#F8F5EF",
