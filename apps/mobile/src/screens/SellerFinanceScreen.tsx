@@ -5,6 +5,7 @@ import type { AuthSession } from "../utils/auth";
 import { refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
 import { loadSettings } from "../utils/settings";
+import { readJsonSafe } from "../utils/http";
 import { theme } from "../theme/colors";
 import ScreenHeader from "../components/ScreenHeader";
 
@@ -129,15 +130,17 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
       const summaryJson = await summaryRes.json();
       const balanceJson = await balanceRes.json();
       const payoutsJson = await payoutsRes.json();
-      const bankJson = await bankRes.json();
+      const bankJson = await readJsonSafe<{ data?: SellerBankAccount | null; error?: { message?: string } }>(bankRes);
       if (!summaryRes.ok) throw new Error(summaryJson?.error?.message ?? "Finans özeti alınamadı");
       if (!balanceRes.ok) throw new Error(balanceJson?.error?.message ?? "Bakiye alınamadı");
       if (!payoutsRes.ok) throw new Error(payoutsJson?.error?.message ?? "Payout listesi alınamadı");
-      if (!bankRes.ok) throw new Error(bankJson?.error?.message ?? "Banka hesabı alınamadı");
       setSummary(summaryJson?.data ?? null);
       setBalance(balanceJson?.data ?? null);
       setPayouts(Array.isArray(payoutsJson?.data) ? payoutsJson.data : []);
-      const bankData = (bankJson?.data ?? null) as SellerBankAccount | null;
+      if (!bankRes.ok && bankRes.status !== 404) {
+        throw new Error(bankJson?.error?.message ?? "Banka hesabı alınamadı");
+      }
+      const bankData = bankRes.ok ? ((bankJson?.data ?? null) as SellerBankAccount | null) : null;
       setIban(typeof bankData?.iban === "string" ? bankData.iban : "");
       setHolder(typeof bankData?.accountHolderName === "string" ? bankData.accountHolderName : "");
       setCardNumber(typeof bankData?.cardNumber === "string" ? bankData.cardNumber : "");
