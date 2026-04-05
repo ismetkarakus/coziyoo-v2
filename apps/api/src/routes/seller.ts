@@ -96,6 +96,11 @@ const SellerReviewsQuerySchema = z.object({
 export const sellerRouter = Router();
 sellerRouter.use(requireAuth("app"));
 
+function isSchemaCompatError(error: unknown): boolean {
+  const code = String((error as { code?: unknown } | null)?.code ?? "");
+  return ["42P01", "42703", "42883", "3F000"].includes(code);
+}
+
 function ensureSellerRole(req: Request, res: Response): boolean {
   const actorRole = resolveActorRole(req);
   if (actorRole !== "seller") {
@@ -265,6 +270,29 @@ async function hasFoodsMenuColumns(): Promise<boolean> {
   );
   const names = new Set(result.rows.map((row) => row.column_name));
   return names.has("menu_items_json") && names.has("secondary_category_ids_json");
+}
+
+async function getUsersSellerProfileColumns(): Promise<Set<string>> {
+  const columns = [
+    "username",
+    "kitchen_title",
+    "kitchen_description",
+    "kitchen_specialties",
+    "delivery_radius_km",
+    "delivery_enabled",
+    "delivery_terms",
+    "working_hours_json",
+    "seller_profile_status",
+  ];
+  const result = await pool.query<{ column_name: string }>(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'users'
+       AND column_name = ANY($1::text[])`,
+    [columns],
+  );
+  return new Set(result.rows.map((row) => row.column_name));
 }
 
 function mapMenuItemsWithCategoryNames(menuItems: unknown, categoryMap: Map<string, string>): MenuItemView[] {
@@ -509,6 +537,8 @@ sellerRouter.get("/profile", async (req, res) => {
   if (!ensureSellerRole(req, res)) return;
   const userId = req.auth!.userId;
   try {
+    const profileColumns = await getUsersSellerProfileColumns();
+    const hasColumn = (columnName: string): boolean => profileColumns.has(columnName);
     const [userResult, addressResult] = await Promise.all([
       pool.query<{
         id: string;
@@ -526,7 +556,21 @@ sellerRouter.get("/profile", async (req, res) => {
         working_hours_json: unknown;
         seller_profile_status: "incomplete" | "pending_review" | "active";
       }>(
-        `SELECT id, display_name, username, email, profile_image_url, phone, kitchen_title, kitchen_description, kitchen_specialties, delivery_radius_km::text, delivery_enabled, delivery_terms, working_hours_json, seller_profile_status
+        `SELECT
+           id,
+           display_name,
+           ${hasColumn("username") ? "username" : "NULL::text AS username"},
+           email,
+           profile_image_url,
+           phone,
+           ${hasColumn("kitchen_title") ? "kitchen_title" : "NULL::text AS kitchen_title"},
+           ${hasColumn("kitchen_description") ? "kitchen_description" : "NULL::text AS kitchen_description"},
+           ${hasColumn("kitchen_specialties") ? "kitchen_specialties" : "'[]'::jsonb AS kitchen_specialties"},
+           ${hasColumn("delivery_radius_km") ? "delivery_radius_km::text" : "NULL::text AS delivery_radius_km"},
+           ${hasColumn("delivery_enabled") ? "delivery_enabled" : "FALSE AS delivery_enabled"},
+           ${hasColumn("delivery_terms") ? "delivery_terms" : "NULL::text AS delivery_terms"},
+           ${hasColumn("working_hours_json") ? "working_hours_json" : "'[]'::jsonb AS working_hours_json"},
+           ${hasColumn("seller_profile_status") ? "seller_profile_status" : "'incomplete'::text AS seller_profile_status"}
          FROM users
          WHERE id = $1 AND is_active = TRUE`,
         [userId],
@@ -547,8 +591,13 @@ sellerRouter.get("/profile", async (req, res) => {
     const row = userResult.rows[0];
     const defaultAddress = addressResult.rows.find((addr) => addr.is_default) ?? null;
     const hasDefaultAddress = Boolean(defaultAddress);
+    const rawProfileStatus = String(row.seller_profile_status ?? "").trim().toLowerCase();
+    const profileStatusSeed: "incomplete" | "pending_review" | "active" =
+      rawProfileStatus === "active" || rawProfileStatus === "pending_review" || rawProfileStatus === "incomplete"
+        ? (rawProfileStatus as "incomplete" | "pending_review" | "active")
+        : "incomplete";
     const profileStatus = computeSellerProfileStatus({
-      profileStatus: row.seller_profile_status ?? "incomplete",
+      profileStatus: profileStatusSeed,
       kitchenTitle: row.kitchen_title,
       kitchenDescription: row.kitchen_description,
       deliveryRadiusKm: row.delivery_radius_km ? Number(row.delivery_radius_km) : null,
@@ -557,7 +606,14 @@ sellerRouter.get("/profile", async (req, res) => {
       hasDefaultAddress,
       submitForReview: false,
     });
-    const operateGate = await getSellerOperateGate(pool, userId);
+    let operateGate = null;
+    try {
+      operateGate = await getSellerOperateGate(pool, userId);
+    } catch (error) {
+      if (!isSchemaCompatError(error)) throw error;
+      const code = String((error as { code?: unknown } | null)?.code ?? "unknown");
+      console.warn("[seller] profile operate gate skipped (schema not ready)", { userId, code });
+    }
 
     return res.json({
       data: {
