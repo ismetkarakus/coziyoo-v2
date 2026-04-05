@@ -110,6 +110,10 @@ function formatOrderDateTime(value?: string): string {
   return `${day}.${month} / ${hours}:${minutes}`;
 }
 
+function formatTry(value: number): string {
+  return `₺${Number(value ?? 0).toFixed(2)}`;
+}
+
 function orderTimeForSort(order: SellerOrder): number {
   return (parseApiDate(order.createdAt) ?? parseApiDate(order.updatedAt))?.getTime() ?? 0;
 }
@@ -539,6 +543,14 @@ export default function SellerHomeScreen({
     return { preparing, route, done };
   }, [todayOrders]);
 
+  const todayTurnover = useMemo(() => {
+    return todayOrders.reduce((sum, order) => {
+      const normalized = normalizeDisplayStatus(order.status, order.deliveryType);
+      if (normalized !== "delivered") return sum;
+      return sum + Number(order.totalPrice ?? 0);
+    }, 0);
+  }, [todayOrders]);
+
   async function handleRefresh() {
     setRefreshing(true);
     await load();
@@ -645,7 +657,8 @@ export default function SellerHomeScreen({
             <Text style={styles.quickButtonText}>Yemek Yönetimi</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickLpiPill} activeOpacity={0.85} onPress={onOpenFinance}>
-            <Text style={[styles.quickButtonText, styles.quickWalletButtonText]}>Cüzdanım</Text>
+            <Text style={styles.quickWalletKpiLabel}>Bugünkü Ciro</Text>
+            <Text style={styles.quickWalletKpiValue}>{loading ? "—" : formatTry(todayTurnover)}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -975,12 +988,9 @@ const styles = StyleSheet.create({
       ? { fontFamily: "AvenirNextCondensed-Bold" }
       : { fontFamily: "sans-serif-condensed", includeFontPadding: false }),
   },
-  quickWalletButtonText: {
-    fontSize: 19,
-  },
   quickLpiPill: {
     flex: 1,
-    height: 46,
+    height: 54,
     paddingHorizontal: 12,
     borderRadius: 14,
     borderWidth: 1,
@@ -988,6 +998,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9E9D5",
     alignItems: "center",
     justifyContent: "center",
+  },
+  quickWalletKpiLabel: {
+    color: "#1D5634",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 14,
+  },
+  quickWalletKpiValue: {
+    color: "#1D5634",
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 20,
+    marginTop: 2,
+    ...(Platform.OS === "ios"
+      ? { fontFamily: "AvenirNextCondensed-Bold" }
+      : { fontFamily: "sans-serif-condensed", includeFontPadding: false }),
   },
   ordersScroll: { flex: 1 },
   ordersContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 48 },
