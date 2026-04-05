@@ -58,7 +58,7 @@ export function orderStatusLabel(status: string, deliveryType?: string | null): 
   return status;
 }
 
-export function sellerDecisionStateLabel(value: string | null | undefined): string {
+export function sellerDecisionStateLabel(value: unknown): string {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (normalized === "pending") return "Karar Bekliyor";
   if (normalized === "revised") return "Plan Güncellendi";
