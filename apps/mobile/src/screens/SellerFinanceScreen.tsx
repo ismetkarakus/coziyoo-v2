@@ -353,10 +353,6 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
                   <Text style={styles.pendingText}>Bekleyen: {formatMoney(balance?.pendingPayoutAmount ?? 0, currency)}</Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.withdrawBtn} onPress={() => setActiveTab("withdraw")} activeOpacity={0.9}>
-                <Text style={styles.withdrawBtnText}>Kart Bilgilerim</Text>
-                <Ionicons name="arrow-forward" size={12} color="#FFFFFF" />
-              </TouchableOpacity>
             </View>
 
             <Text style={styles.sectionTitle}>Kazanç İstatistikleri</Text>
