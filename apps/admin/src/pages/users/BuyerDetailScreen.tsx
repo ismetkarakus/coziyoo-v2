@@ -6,7 +6,7 @@ import { ExcelExportButton, Pager, QuickAccessMenu } from "../../components/ui";
 import { NotesPanel } from "../../components/NotesPanel";
 import InvestigationComplaintDetailPage from "../InvestigationComplaintDetailPage";
 import { formatUiDate, formatBirthDate, formatLoginRelativeDayMonth, formatCurrency, formatTableDateTime, toRelativeTimeTR, toLocalDateKey, parseCustomDateToKey, normalizeImageUrl } from "../../lib/format";
-import { deliveryTypeLabel, paymentBadge, orderStatusLabel } from "../../lib/status";
+import { deliveryTypeLabel, paymentBadge, orderStatusLabel, sellerDecisionStateLabel } from "../../lib/status";
 import { resolveBuyerDetailTab } from "../../lib/routing";
 import type { Language, ApiError, Dictionary } from "../../types/core";
 import type { BuyerDetailTab } from "../../types/users";
@@ -556,10 +556,10 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
       formatTableDateTime(order.createdAt),
       order.orderNo,
       order.sellerName ?? order.sellerEmail ?? order.sellerId,
-      deliveryTypeLabel(order.deliveryType),
+      deliveryTypeLabel(order.activeDeliveryType ?? order.requestedDeliveryType ?? order.deliveryType),
       order.items.map((item: any) => `${item.name} x${item.quantity}`).join(", ") || "-",
       formatCurrency(order.totalAmount, "tr"),
-      orderStatusLabel(order.status, order.deliveryType),
+      orderStatusLabel(order.status, order.activeDeliveryType ?? order.requestedDeliveryType ?? order.deliveryType),
       paymentBadge(order.paymentStatus).text,
     ]);
 
@@ -917,14 +917,11 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                         <tr><td colSpan={9}>Siparis kaydi bulunamadi.</td></tr>
                       ) : visibleOrders.map((order: any) => {
                         const foods = order.items.map((item: any) => `${item.name} x${item.quantity}`).join(", ");
-                        const deliveryText = deliveryTypeLabel(order.deliveryType);
+                        const deliveryText = deliveryTypeLabel(order.activeDeliveryType ?? order.requestedDeliveryType ?? order.deliveryType);
                         const deliveryAddressText = formatDeliveryAddress(order.deliveryAddress);
                         const paymentState = paymentBadge(order.paymentStatus);
-                        const statusText = paymentState.cls === "is-pending"
-                          ? "Bekleyen"
-                          : paymentState.cls === "is-failed"
-                            ? "Basarisiz"
-                            : "Tamamlanmis";
+                        const statusText = orderStatusLabel(order.status, order.activeDeliveryType ?? order.requestedDeliveryType ?? order.deliveryType);
+                        const decisionText = sellerDecisionStateLabel(order.sellerDecisionState);
                         return (
                           <tr key={order.orderId}>
                             <td><input type="checkbox" aria-label="Satir sec" /></td>
@@ -942,13 +939,13 @@ function BuyerDetailScreen({ id, dict, language }: { id: string; dict: Dictionar
                             <td>
                               <div className="buyer-login-cell">
                                 <strong>{deliveryText}</strong>
-                                <small>{deliveryAddressText || "-"}</small>
+                                <small>{`${decisionText} • ${deliveryAddressText || "-"}`}</small>
                               </div>
                             </td>
                             <td>{activeTab === "orders" ? (foods || "-") : `${paymentState.text} • ${foods || "-"}`}</td>
                             <td>{formatCurrency(order.totalAmount, "tr")}</td>
                             <td><span className={`buyer-payment-badge ${paymentState.cls}`}>{statusText}</span></td>
-                            <td><span className="status-pill is-success">Aktif</span></td>
+                            <td><span className={`status-pill ${paymentState.cls === "is-failed" ? "is-danger" : paymentState.cls === "is-pending" ? "is-warning" : "is-success"}`}>{paymentState.text}</span></td>
                           </tr>
                         );
                       })}

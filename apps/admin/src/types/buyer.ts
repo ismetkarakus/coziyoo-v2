@@ -29,6 +29,15 @@ export type BuyerOrderRow = {
   sellerName: string | null;
   sellerEmail: string | null;
   deliveryType: string | null;
+  requestedDeliveryType: string | null;
+  activeDeliveryType: string | null;
+  sellerDecisionState: string | null;
+  sellerEtaMinutes: number | null;
+  sellerPromisedAt: string | null;
+  sellerDeliveryNote: string | null;
+  sellerDeliveryTermsSnapshot: string | null;
+  approvedAt: string | null;
+  paymentCapturedAt: string | null;
   deliveryAddress: unknown | null;
   status: string;
   totalAmount: number;

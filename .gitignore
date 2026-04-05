@@ -29,6 +29,9 @@ vite.svg
 # Environment files (keep .env.example)
 .env
 .env.local
+!apps/admin/.env
+!apps/api/.env
+!apps/mobile/.env
 
 # IDE
 .vscode

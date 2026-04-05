@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  pending_seller_approval: { label: 'Ödeme Bekleniyor', color: '#B86A00', bg: '#FFF3E0' },
-  seller_approved: { label: 'Ödeme Bekleniyor', color: '#A16207', bg: '#FFF8EB' },
+  pending_seller_approval: { label: 'Satıcı Onayı Bekleniyor', color: '#B86A00', bg: '#FFF3E0' },
+  seller_approved: { label: 'Sipariş Onaylandı', color: '#A16207', bg: '#FFF8EB' },
   confirmed: { label: 'Ödeme Bekleniyor', color: '#9A3412', bg: '#FFF1EB' },
   awaiting_payment: { label: 'Ödeme Bekleniyor', color: '#7C5D00', bg: '#FFF7D6' },
   paid: { label: 'Ödeme Alındı', color: '#0F766E', bg: '#E6FFFB' },
@@ -37,7 +37,7 @@ function statusKeyByDeliveryType(status: string, deliveryType?: string): string 
 }
 
 function resolveLabel(statusKey: string, fallbackLabel: string, audience?: 'buyer' | 'seller'): string {
-  if (audience === 'buyer' && statusKey === 'paid') return 'Ödeme Yapıldı';
+  if (audience === 'buyer' && statusKey === 'paid') return 'Ödeme Alındı';
   return fallbackLabel;
 }
 

@@ -403,9 +403,9 @@ type CheckoutFlowResult = {
 function formatOrderStatusLabel(status: string): string {
   const normalized = status.trim().toLowerCase();
   if (!normalized) return '-';
-  if (normalized === 'pending_seller_approval' || normalized === 'seller_approved' || normalized === 'awaiting_payment') {
-    return t('status.home.orderStatus.awaiting_payment');
-  }
+  if (normalized === 'pending_seller_approval') return t('status.home.orderStatus.pending_seller_approval');
+  if (normalized === 'seller_approved') return t('status.home.orderStatus.seller_approved');
+  if (normalized === 'awaiting_payment') return t('status.home.orderStatus.awaiting_payment');
   if (normalized === 'preparing') return t('status.home.orderStatus.preparing');
   if (normalized === 'ready') return t('status.home.orderStatus.ready');
   if (normalized === 'in_delivery') return t('status.home.orderStatus.in_delivery');
@@ -422,6 +422,7 @@ function formatPaymentAttemptLabel(status?: string): string {
   const normalized = (status ?? '').trim().toLowerCase();
   if (!normalized) return t('status.home.paymentWaiting');
   if (normalized === 'initiated') return t('status.home.paymentAttempt.initiated');
+  if (normalized === 'confirmed') return t('status.home.paymentAttempt.succeeded');
   if (normalized === 'pending') return t('status.home.paymentAttempt.pending');
   if (normalized === 'processing') return t('status.home.paymentAttempt.processing');
   if (normalized === 'succeeded') return t('status.home.paymentAttempt.succeeded');
@@ -1355,7 +1356,7 @@ export default function HomeScreen({
   const [userAddresses, setUserAddresses] = useState<UserAddress[]>([]);
   const [addressesLoading, setAddressesLoading] = useState(false);
   const [selectedCheckoutAddressId, setSelectedCheckoutAddressId] = useState<string | null>(null);
-  const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
+  const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('pickup');
   const [pickupSellerAddress, setPickupSellerAddress] = useState<{ title?: string; addressLine?: string } | null>(null);
   const [pickupSellerAddressLoading, setPickupSellerAddressLoading] = useState(false);
   const [pickupSellerAddressError, setPickupSellerAddressError] = useState<string | null>(null);
@@ -2363,8 +2364,6 @@ export default function HomeScreen({
     setCheckoutFlowResult(null);
     try {
       const createdOrderIds: string[] = [];
-      const createdPaymentSessions: Array<{ sessionId: string; provider: string }> = [];
-
       for (const [sellerId, sellerItems] of groupedBySeller.entries()) {
         const orderRes = await authedJsonFetch(`${apiUrl}/v1/orders`, {
           method: 'POST',
@@ -2403,44 +2402,8 @@ export default function HomeScreen({
           throw new Error('Sipariş kimliği dönmedi.');
         }
         createdOrderIds.push(orderId);
-
-        const paymentRes = await authedJsonFetch(`${apiUrl}/v1/payments/start`, {
-          method: 'POST',
-          headers: {
-            'x-actor-role': 'buyer',
-            'Idempotency-Key': `mobile-payment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-          },
-          body: JSON.stringify({ orderId }),
-        });
-        const paymentJson = await readJsonSafe<{
-          data?: { checkoutUrl?: string; sessionId?: string; provider?: string };
-          error?: { message?: string };
-        }>(paymentRes);
-        if (!paymentRes.ok) {
-          throw new Error(paymentJson?.error?.message ?? `Ödeme başlatılamadı (${paymentRes.status})`);
-        }
-        const sessionId = String(paymentJson?.data?.sessionId ?? '').trim();
-        if (!sessionId) {
-          throw new Error('Ödeme oturumu oluşturulamadı.');
-        }
-        const provider = String(paymentJson?.data?.provider ?? '').trim().toLowerCase() || 'mockpay';
-        createdPaymentSessions.push({ sessionId, provider });
       }
-
-      const bypassSessions = createdPaymentSessions.filter((item) => item.provider === 'mockpay');
-      for (const { sessionId } of bypassSessions) {
-        const mockPayRes = await authedJsonFetch(`${apiUrl}/v1/payments/mock-process`, {
-          method: 'POST',
-          headers: { 'x-actor-role': 'buyer' },
-          body: JSON.stringify({ sessionId, result: 'success' }),
-        });
-        const mockPayJson = await readJsonSafe<{ error?: { message?: string } }>(mockPayRes);
-        if (!mockPayRes.ok) {
-          throw new Error(mockPayJson?.error?.message ?? `Ödeme tamamlanamadı (${mockPayRes.status})`);
-        }
-      }
-      const allBypassed = createdPaymentSessions.length > 0 && bypassSessions.length === createdPaymentSessions.length;
-      setCheckoutFlowResult({ ok: true, orderIds: createdOrderIds, allBypassed });
+      setCheckoutFlowResult({ ok: true, orderIds: createdOrderIds });
     } catch (err) {
       setCheckoutFlowResult({ ok: false, error: err instanceof Error ? err.message : 'Ödeme başlatma hatası' });
     } finally {
@@ -2465,40 +2428,21 @@ export default function HomeScreen({
     const createdOrderIds = checkoutFlowResult.orderIds ?? [];
     setActiveOrderId(createdOrderIds[0] ?? null);
     setActiveOrderIds(createdOrderIds);
-    if (checkoutFlowResult.allBypassed) {
-      setPaymentStatus(
-        createdOrderIds[0]
-          ? {
-              orderId: createdOrderIds[0],
-              orderStatus: 'paid',
-              paymentCompleted: true,
-              latestAttemptStatus: 'succeeded',
-            }
-          : null,
-      );
-      setPaymentInfo(
-        createdOrderIds.length > 1
-          ? `${createdOrderIds.length} sipariş için ödeme başarılı.`
-          : 'Ödeme başarılı! Siparişin satıcıya iletildi.',
-      );
-    } else {
-      setPaymentStatus(
-        createdOrderIds[0]
-          ? {
-              orderId: createdOrderIds[0],
-              orderStatus: 'awaiting_payment',
-              paymentCompleted: false,
-              latestAttemptStatus: 'initiated',
-            }
-          : null,
-      );
-      setPaymentInfo(
-        createdOrderIds.length > 1
-          ? `${createdOrderIds.length} sipariş oluşturuldu. Ödeme tamamlanınca otomatik güncellenecek.`
-          : 'Siparişin oluşturuldu. Ödeme tamamlanınca satıcı hazırlamaya başlayacak.',
-      );
-      void refreshPaymentStatus(true, createdOrderIds);
-    }
+    setPaymentStatus(
+      createdOrderIds[0]
+        ? {
+            orderId: createdOrderIds[0],
+            orderStatus: 'pending_seller_approval',
+            paymentCompleted: false,
+          }
+        : null,
+    );
+    setPaymentInfo(
+      createdOrderIds.length > 1
+        ? `${createdOrderIds.length} sipariş oluşturuldu. Satıcı onaylayınca ödeme otomatik alınacak.`
+        : 'Siparişin oluşturuldu. Satıcı onaylayınca ödeme otomatik alınacak.',
+    );
+    void refreshPaymentStatus(true, createdOrderIds);
     setPaymentError(null);
     setCartItems([]);
     setCheckoutFlowResult(null);

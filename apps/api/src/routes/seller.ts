@@ -18,6 +18,8 @@ const SellerProfileUpdateSchema = z.object({
   kitchenDescription: z.string().min(10).max(1000).optional(),
   kitchenSpecialties: z.array(z.string().min(1).max(80)).max(20).optional(),
   deliveryRadiusKm: z.number().min(0.5).max(50).optional(),
+  deliveryEnabled: z.boolean().optional(),
+  deliveryTerms: z.string().max(1000).optional(),
   workingHours: z.array(WorkingHourSchema).max(14).optional(),
   submitForReview: z.boolean().optional(),
 });
@@ -519,10 +521,12 @@ sellerRouter.get("/profile", async (req, res) => {
         kitchen_description: string | null;
         kitchen_specialties: unknown;
         delivery_radius_km: string | null;
+        delivery_enabled: boolean;
+        delivery_terms: string | null;
         working_hours_json: unknown;
         seller_profile_status: "incomplete" | "pending_review" | "active";
       }>(
-        `SELECT id, display_name, username, email, profile_image_url, phone, kitchen_title, kitchen_description, kitchen_specialties, delivery_radius_km::text, working_hours_json, seller_profile_status
+        `SELECT id, display_name, username, email, profile_image_url, phone, kitchen_title, kitchen_description, kitchen_specialties, delivery_radius_km::text, delivery_enabled, delivery_terms, working_hours_json, seller_profile_status
          FROM users
          WHERE id = $1 AND is_active = TRUE`,
         [userId],
@@ -567,6 +571,8 @@ sellerRouter.get("/profile", async (req, res) => {
         kitchenDescription: row.kitchen_description,
         kitchenSpecialties: Array.isArray(row.kitchen_specialties) ? row.kitchen_specialties : [],
         deliveryRadiusKm: row.delivery_radius_km ? Number(row.delivery_radius_km) : null,
+        deliveryEnabled: Boolean(row.delivery_enabled),
+        deliveryTerms: row.delivery_terms,
         workingHours: Array.isArray(row.working_hours_json) ? row.working_hours_json : [],
         status: profileStatus,
         defaultAddress: defaultAddress
@@ -614,11 +620,13 @@ sellerRouter.put("/profile", async (req, res) => {
         kitchen_title: string | null;
         kitchen_description: string | null;
         delivery_radius_km: string | null;
+        delivery_enabled: boolean;
+        delivery_terms: string | null;
         working_hours_json: unknown;
         phone: string | null;
         seller_profile_status: "incomplete" | "pending_review" | "active";
       }>(
-        `SELECT kitchen_title, kitchen_description, delivery_radius_km::text, working_hours_json, phone, seller_profile_status
+        `SELECT kitchen_title, kitchen_description, delivery_radius_km::text, delivery_enabled, delivery_terms, working_hours_json, phone, seller_profile_status
          FROM users
          WHERE id = $1 FOR UPDATE`,
         [userId],
@@ -648,6 +656,8 @@ sellerRouter.put("/profile", async (req, res) => {
         kitchen_description: string | null;
         kitchen_specialties: unknown;
         delivery_radius_km: string | null;
+        delivery_enabled: boolean;
+        delivery_terms: string | null;
         working_hours_json: unknown;
         seller_profile_status: "incomplete" | "pending_review" | "active";
       }>(
@@ -657,10 +667,15 @@ sellerRouter.put("/profile", async (req, res) => {
              delivery_radius_km = COALESCE($4::numeric, delivery_radius_km),
              working_hours_json = COALESCE($5::jsonb, working_hours_json),
              kitchen_specialties = COALESCE($7::jsonb, kitchen_specialties),
+             delivery_enabled = COALESCE($8::boolean, delivery_enabled),
+             delivery_terms = CASE
+               WHEN $9::text IS NULL THEN delivery_terms
+               ELSE $9::text
+             END,
              seller_profile_status = $6,
              updated_at = now()
          WHERE id = $1
-         RETURNING kitchen_title, kitchen_description, kitchen_specialties, delivery_radius_km::text, working_hours_json, seller_profile_status`,
+         RETURNING kitchen_title, kitchen_description, kitchen_specialties, delivery_radius_km::text, delivery_enabled, delivery_terms, working_hours_json, seller_profile_status`,
         [
           userId,
           input.kitchenTitle ?? null,
@@ -669,6 +684,8 @@ sellerRouter.put("/profile", async (req, res) => {
           input.workingHours ? JSON.stringify(input.workingHours) : null,
           nextStatus,
           input.kitchenSpecialties ? JSON.stringify(input.kitchenSpecialties) : null,
+          input.deliveryEnabled ?? null,
+          input.deliveryTerms !== undefined ? input.deliveryTerms.trim() : null,
         ],
       );
 
@@ -678,6 +695,8 @@ sellerRouter.put("/profile", async (req, res) => {
           kitchenDescription: updated.rows[0].kitchen_description,
           kitchenSpecialties: Array.isArray(updated.rows[0].kitchen_specialties) ? updated.rows[0].kitchen_specialties : [],
           deliveryRadiusKm: updated.rows[0].delivery_radius_km ? Number(updated.rows[0].delivery_radius_km) : null,
+          deliveryEnabled: Boolean(updated.rows[0].delivery_enabled),
+          deliveryTerms: updated.rows[0].delivery_terms,
           workingHours: Array.isArray(updated.rows[0].working_hours_json) ? updated.rows[0].working_hours_json : [],
           status: updated.rows[0].seller_profile_status,
         },

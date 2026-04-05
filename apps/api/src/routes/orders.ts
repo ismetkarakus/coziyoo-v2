@@ -24,7 +24,7 @@ import { normalizeDeliveryType } from "../utils/delivery-type.js";
 
 const CreateOrderSchema = z.object({
   sellerId: z.string().uuid(),
-  deliveryType: z.enum(["pickup", "delivery"]),
+  deliveryType: z.enum(["pickup", "delivery"]).optional().default("pickup"),
   deliveryAddress: z.record(z.string(), z.unknown()).optional(),
   requestedAt: z.string().datetime().optional(),
   items: z.array(z.object({
@@ -66,6 +66,14 @@ const StatusSchema = z.object({
   reason: z.string().min(3).max(500).optional(),
 });
 
+const SellerDecisionSchema = z.object({
+  decision: z.enum(["approve", "revise", "reject"]),
+  deliveryType: z.enum(["pickup", "delivery"]).optional(),
+  etaMinutes: z.number().int().min(1).max(1440).optional(),
+  note: z.string().max(1000).optional(),
+  reason: z.string().min(3).max(500).optional(),
+});
+
 type OrderRow = {
   id: string;
   buyer_id: string;
@@ -74,8 +82,22 @@ type OrderRow = {
   total_price: string;
   payment_completed: boolean;
   delivery_type: string;
+  requested_delivery_type?: string;
+  active_delivery_type?: string;
+  seller_decision_state?: string;
+  seller_eta_minutes?: number | null;
+  seller_promised_at?: string | null;
+  seller_delivery_note?: string | null;
+  seller_delivery_terms_snapshot?: string | null;
+  approved_at?: string | null;
+  payment_captured_at?: string | null;
   delivery_address_json: unknown;
   estimated_delivery_time: string | null;
+};
+
+type SellerDeliverySettings = {
+  delivery_enabled: boolean;
+  delivery_terms: string | null;
 };
 
 const OrderLocationPingSchema = z.object({
@@ -162,6 +184,70 @@ function resolveDeliveryDestination(deliveryAddressJson: unknown): { coord: LatL
   const coord = extractLatLng(deliveryAddressJson);
   const addressLine = extractAddressLine(deliveryAddressJson);
   return { coord, addressLine };
+}
+
+function normalizeDecisionDeliveryType(value: unknown): "pickup" | "delivery" {
+  return normalizeDeliveryType(value) === "delivery" ? "delivery" : "pickup";
+}
+
+function computePromisedAtIso(etaMinutes: number): string {
+  return new Date(Date.now() + etaMinutes * 60_000).toISOString();
+}
+
+async function loadSellerDeliverySettingsTx(client: PoolClient, sellerId: string): Promise<SellerDeliverySettings> {
+  const result = await client.query<SellerDeliverySettings>(
+    `SELECT delivery_enabled, delivery_terms
+     FROM users
+     WHERE id = $1
+     LIMIT 1`,
+    [sellerId],
+  );
+  return {
+    delivery_enabled: Boolean(result.rows[0]?.delivery_enabled),
+    delivery_terms: result.rows[0]?.delivery_terms ?? null,
+  };
+}
+
+async function autoCapturePaymentForOrderTx(
+  client: PoolClient,
+  input: { orderId: string; buyerId: string; fromStatus: string; actorUserId: string | null },
+): Promise<{ provider: string; providerReferenceId: string }> {
+  const sessionId = crypto.randomUUID();
+  const providerReferenceId = `${String(env.PAYMENT_PROVIDER_NAME || "auto").toUpperCase()}-${Date.now()}`;
+
+  await client.query(
+    `INSERT INTO payment_attempts
+      (order_id, buyer_id, provider, provider_session_id, provider_reference_id, status, signature_valid, callback_payload_json, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, 'confirmed', TRUE, $6::jsonb, now(), now())`,
+    [
+      input.orderId,
+      input.buyerId,
+      env.PAYMENT_PROVIDER_NAME,
+      sessionId,
+      providerReferenceId,
+      JSON.stringify({ autoCaptured: true, approvedBy: input.actorUserId, capturedAt: new Date().toISOString() }),
+    ],
+  );
+
+  await client.query(
+    `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
+     VALUES ($1, $2, 'payment_captured', $3, 'paid', $4)`,
+    [
+      input.orderId,
+      input.actorUserId,
+      input.fromStatus,
+      JSON.stringify({ provider: env.PAYMENT_PROVIDER_NAME, providerReferenceId, autoCaptured: true }),
+    ],
+  );
+
+  await enqueueOutboxEvent(client, {
+    eventType: "payment_confirmed",
+    aggregateType: "order",
+    aggregateId: input.orderId,
+    payload: { orderId: input.orderId, providerReferenceId, autoCaptured: true },
+  });
+
+  return { provider: env.PAYMENT_PROVIDER_NAME, providerReferenceId };
 }
 
 function trackingStatusLabel(status: string): string {
@@ -302,6 +388,8 @@ ordersRouter.post(
       return res.status(400).json({ error: { code: "ORDER_DUPLICATE_LOTS", message: "Each lot can be used only once per order" } });
     }
 
+    const sellerSettings = await loadSellerDeliverySettingsTx(client, input.sellerId);
+
     const lots = await client.query<{
       lot_id: string;
       food_id: string;
@@ -312,7 +400,6 @@ ordersRouter.post(
       sale_ends_at: string;
       price: string;
       delivery_fee: string | null;
-      delivery_options_json: unknown;
       food_is_active: boolean;
     }>(
       `SELECT l.id AS lot_id,
@@ -324,7 +411,6 @@ ordersRouter.post(
               l.sale_ends_at::text,
               f.price::text AS price,
               f.delivery_fee::text AS delivery_fee,
-              f.delivery_options_json,
               f.is_active AS food_is_active
        FROM production_lots l
        LEFT JOIN foods f ON f.id = l.food_id
@@ -345,17 +431,6 @@ ordersRouter.post(
         await client.query("ROLLBACK");
         return res.status(400).json({
           error: { code: "ORDER_INVALID_ITEMS", message: "Lots must belong to selected seller" },
-        });
-      }
-      const deliveryOptions = normalizeFoodDeliveryOptions(lot.delivery_options_json);
-      const isSupported = input.deliveryType === "pickup" ? deliveryOptions.pickup : deliveryOptions.delivery;
-      if (!isSupported) {
-        await client.query("ROLLBACK");
-        return res.status(409).json({
-          error: {
-            code: "UNSUPPORTED_DELIVERY_TYPE",
-            message: `unsupported deliveryType: ${input.deliveryType}`,
-          },
         });
       }
       if (!["open", "active"].includes(lot.status)) {
@@ -380,6 +455,13 @@ ordersRouter.post(
       }
     }
 
+    if (input.deliveryType === "delivery" && !sellerSettings.delivery_enabled) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: { code: "DELIVERY_NOT_ENABLED", message: "Satıcı bu sipariş için teslimat sunmuyor." },
+      });
+    }
+
     const normalizedAddonsByLotId = new Map<string, NormalizedSelectedAddons>();
     let subtotal = 0;
     for (const item of input.items) {
@@ -400,13 +482,28 @@ ordersRouter.post(
     const total = Number((subtotal + deliveryFee).toFixed(2));
 
     const orderInsert = await client.query<{ id: string }>(
-      `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at)
-       VALUES ($1, $2, 'pending_seller_approval', $3, $4, $5, $6)
+      `INSERT INTO orders (
+         buyer_id,
+         seller_id,
+         status,
+         delivery_type,
+         requested_delivery_type,
+         active_delivery_type,
+         seller_decision_state,
+         seller_delivery_terms_snapshot,
+         delivery_address_json,
+         total_price,
+         requested_at
+       )
+       VALUES ($1, $2, 'pending_seller_approval', $3, $4, $5, 'pending', $6, $7, $8, $9)
        RETURNING id`,
       [
         req.auth!.userId,
         input.sellerId,
         input.deliveryType,
+        input.deliveryType,
+        input.deliveryType,
+        input.deliveryType === "delivery" ? sellerSettings.delivery_terms : null,
         input.deliveryAddress ? JSON.stringify(input.deliveryAddress) : null,
         total,
         input.requestedAt ?? null,
@@ -535,6 +632,9 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
     seller_id: string;
     status: string;
     delivery_type: string;
+    requested_delivery_type: string;
+    active_delivery_type: string;
+    seller_decision_state: string;
     delivery_address_json: unknown;
     total_price: string;
     created_at: string;
@@ -543,7 +643,7 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
     seller_image: string | null;
     buyer_name: string;
   }>(
-    `SELECT o.id, o.buyer_id, o.seller_id, o.status, o.delivery_type,
+    `SELECT o.id, o.buyer_id, o.seller_id, o.status, o.delivery_type, o.requested_delivery_type, o.active_delivery_type, o.seller_decision_state,
             o.delivery_address_json, o.total_price::text, o.created_at::text, o.updated_at::text,
             s.display_name AS seller_name, s.profile_image_url AS seller_image,
             b.display_name AS buyer_name
@@ -601,6 +701,9 @@ ordersRouter.get("/", requireAuth("app"), async (req, res) => {
       sellerId: row.seller_id,
       status: row.status,
       deliveryType: normalizeDeliveryType(row.delivery_type) ?? row.delivery_type,
+      requestedDeliveryType: normalizeDeliveryType(row.requested_delivery_type) ?? row.requested_delivery_type,
+      activeDeliveryType: normalizeDeliveryType(row.active_delivery_type) ?? row.active_delivery_type,
+      sellerDecisionState: row.seller_decision_state,
       deliveryAddress: row.delivery_address_json,
       totalPrice: Number(row.total_price),
       createdAt: row.created_at,
@@ -627,7 +730,10 @@ ordersRouter.get("/:id", requireAuth("app"), async (req, res) => {
 
   const orderResult = await pool.query<{
     id: string; buyer_id: string; seller_id: string; status: string;
-    delivery_type: string; delivery_address_json: unknown;
+    delivery_type: string; requested_delivery_type: string; active_delivery_type: string; seller_decision_state: string;
+    seller_eta_minutes: number | null; seller_promised_at: string | null; seller_delivery_note: string | null;
+    seller_delivery_terms_snapshot: string | null; approved_at: string | null; payment_captured_at: string | null;
+    delivery_address_json: unknown;
     total_price: string; payment_completed: boolean;
     requested_at: string | null; estimated_delivery_time: string | null;
     created_at: string; updated_at: string;
@@ -681,6 +787,15 @@ ordersRouter.get("/:id", requireAuth("app"), async (req, res) => {
       sellerId: o.seller_id,
       status: o.status,
       deliveryType: normalizeDeliveryType(o.delivery_type) ?? o.delivery_type,
+      requestedDeliveryType: normalizeDeliveryType(o.requested_delivery_type) ?? o.requested_delivery_type,
+      activeDeliveryType: normalizeDeliveryType(o.active_delivery_type) ?? o.active_delivery_type,
+      sellerDecisionState: o.seller_decision_state,
+      sellerEtaMinutes: o.seller_eta_minutes ?? null,
+      sellerPromisedAt: o.seller_promised_at,
+      sellerDeliveryNote: o.seller_delivery_note,
+      sellerDeliveryTermsSnapshot: o.seller_delivery_terms_snapshot,
+      approvedAt: o.approved_at,
+      paymentCapturedAt: o.payment_captured_at,
       deliveryAddress: o.delivery_address_json,
       sellerAddress: o.seller_address_json,
       totalPrice: Number(o.total_price),
@@ -709,6 +824,184 @@ ordersRouter.get("/:id", requireAuth("app"), async (req, res) => {
       })),
     },
   });
+});
+
+ordersRouter.post("/:id/seller-decision", requireAuth("app"), async (req, res) => {
+  const actorRole = resolveActorRole(req);
+  if (actorRole !== "seller") {
+    return res.status(403).json({ error: { code: "ROLE_NOT_ALLOWED", message: "Seller role required" } });
+  }
+
+  const parsed = SellerDecisionSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: "VALIDATION_ERROR", details: parsed.error.flatten() } });
+  }
+
+  const { decision, reason } = parsed.data;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const orderResult = await client.query<OrderRow>(
+      `SELECT id, buyer_id, seller_id, status, total_price::text, payment_completed, delivery_type,
+              requested_delivery_type, active_delivery_type, seller_decision_state, seller_eta_minutes,
+              seller_promised_at::text, seller_delivery_note, seller_delivery_terms_snapshot,
+              approved_at::text, payment_captured_at::text, delivery_address_json, estimated_delivery_time::text
+       FROM orders
+       WHERE id = $1
+       FOR UPDATE`,
+      [req.params.id],
+    );
+
+    if ((orderResult.rowCount ?? 0) === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: { code: "ORDER_NOT_FOUND", message: "Order not found" } });
+    }
+    const order = orderResult.rows[0];
+    if (order.seller_id !== req.auth!.userId) {
+      await client.query("ROLLBACK");
+      return res.status(403).json({ error: { code: "FORBIDDEN_ORDER_SCOPE", message: "Not seller of this order" } });
+    }
+    if (isTerminalStatus(order.status)) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: { code: "ORDER_TERMINAL", message: "Order is already terminal" } });
+    }
+    if (order.payment_completed && decision !== "reject") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: { code: "ORDER_ALREADY_APPROVED", message: "Sipariş zaten onaylandı." } });
+    }
+    if (order.status !== "pending_seller_approval") {
+      await client.query("ROLLBACK");
+      return res.status(409).json({
+        error: { code: "ORDER_INVALID_STATE", message: `Bu sipariste seller decision kullanilamaz: ${order.status}` },
+      });
+    }
+
+    if (decision === "reject") {
+      if (!reason?.trim()) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: { code: "REJECTION_REASON_REQUIRED", message: "İptal sebebi zorunlu." } });
+      }
+      await client.query(
+        `UPDATE orders
+         SET status = 'rejected',
+             seller_decision_state = 'rejected',
+             updated_at = now()
+         WHERE id = $1`,
+        [order.id],
+      );
+      await client.query(
+        `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
+         VALUES ($1, $2, 'seller_rejected', $3, 'rejected', $4)`,
+        [order.id, req.auth!.userId, order.status, JSON.stringify({ reason: reason.trim() })],
+      );
+      await client.query("COMMIT");
+      return res.json({ data: { orderId: order.id, decision: "reject", status: "rejected" } });
+    }
+
+    const deliveryType = normalizeDecisionDeliveryType(parsed.data.deliveryType ?? order.active_delivery_type ?? order.requested_delivery_type ?? order.delivery_type);
+    const etaMinutes = Number(parsed.data.etaMinutes ?? 0);
+    if (!Number.isInteger(etaMinutes) || etaMinutes <= 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: { code: "ETA_REQUIRED", message: "Dakika bilgisi zorunlu." } });
+    }
+
+    const sellerSettings = await loadSellerDeliverySettingsTx(client, order.seller_id);
+    if (deliveryType === "delivery" && !sellerSettings.delivery_enabled) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ error: { code: "DELIVERY_NOT_ENABLED", message: "Teslimat ayarı kapalı." } });
+    }
+    const note = parsed.data.note?.trim() ?? "";
+    if (deliveryType === "delivery" && !note) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: { code: "DELIVERY_NOTE_REQUIRED", message: "Teslimat notu zorunlu." } });
+    }
+
+    const promisedAt = computePromisedAtIso(etaMinutes);
+    const termsSnapshot = deliveryType === "delivery" ? sellerSettings.delivery_terms : null;
+
+    if (decision === "revise") {
+      await client.query(
+        `UPDATE orders
+         SET delivery_type = $2,
+             active_delivery_type = $2,
+             seller_decision_state = 'revised',
+             seller_eta_minutes = $3,
+             seller_promised_at = $4,
+             seller_delivery_note = $5,
+             seller_delivery_terms_snapshot = $6,
+             updated_at = now()
+         WHERE id = $1`,
+        [order.id, deliveryType, etaMinutes, promisedAt, note || null, termsSnapshot],
+      );
+      await client.query(
+        `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
+         VALUES ($1, $2, 'seller_plan_revised', $3, $4, $5)`,
+        [
+          order.id,
+          req.auth!.userId,
+          order.status,
+          order.status,
+          JSON.stringify({ deliveryType, etaMinutes, note: note || null, deliveryTermsSnapshot: termsSnapshot }),
+        ],
+      );
+      await client.query("COMMIT");
+      return res.json({
+        data: { orderId: order.id, decision: "revise", status: order.status, activeDeliveryType: deliveryType, sellerPromisedAt: promisedAt },
+      });
+    }
+
+    await client.query(
+      `UPDATE orders
+       SET status = 'paid',
+           payment_completed = TRUE,
+           payment_captured_at = now(),
+           approved_at = now(),
+           delivery_type = $2,
+           active_delivery_type = $2,
+           seller_decision_state = 'approved',
+           seller_eta_minutes = $3,
+           seller_promised_at = $4,
+           seller_delivery_note = $5,
+           seller_delivery_terms_snapshot = $6,
+           updated_at = now()
+       WHERE id = $1`,
+      [order.id, deliveryType, etaMinutes, promisedAt, note || null, termsSnapshot],
+    );
+    await client.query(
+      `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
+       VALUES ($1, $2, 'seller_approved', $3, 'seller_approved', $4)`,
+      [
+        order.id,
+        req.auth!.userId,
+        order.status,
+        JSON.stringify({ deliveryType, etaMinutes, note: note || null, deliveryTermsSnapshot: termsSnapshot }),
+      ],
+    );
+    const paymentResult = await autoCapturePaymentForOrderTx(client, {
+      orderId: order.id,
+      buyerId: order.buyer_id,
+      fromStatus: "seller_approved",
+      actorUserId: req.auth!.userId,
+    });
+    await client.query("COMMIT");
+    return res.json({
+      data: {
+        orderId: order.id,
+        decision: "approve",
+        status: "paid",
+        paymentCompleted: true,
+        paymentProvider: paymentResult.provider,
+        activeDeliveryType: deliveryType,
+        sellerPromisedAt: promisedAt,
+      },
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("[orders] seller decision failed", error);
+    return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Seller decision failed" } });
+  } finally {
+    client.release();
+  }
 });
 
 /**
@@ -1168,6 +1461,25 @@ async function transitionHandler(
       }
     }
 
+    if (!skipProofCheck && toStatus === "delivered" && order.delivery_type === "delivery") {
+      const hasProofTable = await tableExistsTx(client, "public.delivery_proof_records");
+      if (hasProofTable) {
+        const proof = await client.query<{ status: string }>(
+          "SELECT status FROM delivery_proof_records WHERE order_id = $1",
+          [order.id]
+        );
+        if ((proof.rowCount ?? 0) === 0 || proof.rows[0].status !== "verified") {
+          await client.query("ROLLBACK");
+          return res.status(409).json({
+            error: {
+              code: "DELIVERY_PIN_REQUIRED",
+              message: "Teslimat kodu doğrulanmadan teslim edildi işaretlenemez",
+            },
+          });
+        }
+      }
+    }
+
     await client.query("UPDATE orders SET status = $1, updated_at = now() WHERE id = $2", [toStatus, order.id]);
     await client.query(
       `INSERT INTO order_events (order_id, actor_user_id, event_type, from_status, to_status, payload_json)
@@ -1506,6 +1818,8 @@ voiceOrderRouter.post(
           .json({ error: { code: "ORDER_DUPLICATE_LOTS", message: "Each lot can be used only once per order" } });
       }
 
+      const sellerSettings = await loadSellerDeliverySettingsTx(client, input.sellerId);
+
       const lots = await client.query<{
         lot_id: string;
         food_id: string;
@@ -1516,7 +1830,6 @@ voiceOrderRouter.post(
         sale_ends_at: string;
         price: string;
         delivery_fee: string | null;
-        delivery_options_json: unknown;
         food_is_active: boolean;
       }>(
         `SELECT l.id AS lot_id,
@@ -1528,7 +1841,6 @@ voiceOrderRouter.post(
                 l.sale_ends_at::text,
                 f.price::text AS price,
                 f.delivery_fee::text AS delivery_fee,
-                f.delivery_options_json,
                 f.is_active AS food_is_active
          FROM production_lots l
          LEFT JOIN foods f ON f.id = l.food_id
@@ -1549,17 +1861,6 @@ voiceOrderRouter.post(
           await client.query("ROLLBACK");
           return res.status(400).json({
             error: { code: "ORDER_INVALID_ITEMS", message: "Lots must belong to selected seller" },
-          });
-        }
-        const deliveryOptions = normalizeFoodDeliveryOptions(lot.delivery_options_json);
-        const isSupported = input.deliveryType === "pickup" ? deliveryOptions.pickup : deliveryOptions.delivery;
-        if (!isSupported) {
-          await client.query("ROLLBACK");
-          return res.status(409).json({
-            error: {
-              code: "UNSUPPORTED_DELIVERY_TYPE",
-              message: `unsupported deliveryType: ${input.deliveryType}`,
-            },
           });
         }
         if (!["open", "active"].includes(lot.status)) {
@@ -1588,6 +1889,13 @@ voiceOrderRouter.post(
         }
       }
 
+      if (input.deliveryType === "delivery" && !sellerSettings.delivery_enabled) {
+        await client.query("ROLLBACK");
+        return res.status(409).json({
+          error: { code: "DELIVERY_NOT_ENABLED", message: "Satıcı bu sipariş için teslimat sunmuyor." },
+        });
+      }
+
       const normalizedAddonsByLotId = new Map<string, NormalizedSelectedAddons>();
       let subtotal = 0;
       for (const item of input.items) {
@@ -1608,13 +1916,28 @@ voiceOrderRouter.post(
       const total = Number((subtotal + deliveryFee).toFixed(2));
 
       const orderInsert = await client.query<{ id: string }>(
-        `INSERT INTO orders (buyer_id, seller_id, status, delivery_type, delivery_address_json, total_price, requested_at)
-         VALUES ($1, $2, 'pending_seller_approval', $3, $4, $5, $6)
+        `INSERT INTO orders (
+           buyer_id,
+           seller_id,
+           status,
+           delivery_type,
+           requested_delivery_type,
+           active_delivery_type,
+           seller_decision_state,
+           seller_delivery_terms_snapshot,
+           delivery_address_json,
+           total_price,
+           requested_at
+         )
+         VALUES ($1, $2, 'pending_seller_approval', $3, $4, $5, 'pending', $6, $7, $8, $9)
          RETURNING id`,
         [
           input.userId,
           input.sellerId,
           input.deliveryType,
+          input.deliveryType,
+          input.deliveryType,
+          input.deliveryType === "delivery" ? sellerSettings.delivery_terms : null,
           input.deliveryAddress ? JSON.stringify(input.deliveryAddress) : null,
           total,
           input.requestedAt ?? null,

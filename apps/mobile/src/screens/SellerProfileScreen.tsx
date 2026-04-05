@@ -22,6 +22,8 @@ type SellerProfilePayload = {
     kitchenTitle?: string | null;
     kitchenDescription?: string | null;
     deliveryRadiusKm?: number | null;
+    deliveryEnabled?: boolean;
+    deliveryTerms?: string | null;
     workingHours?: Array<{ day: string; open: string; close: string; enabled?: boolean }>;
     status?: "incomplete" | "pending_review" | "active";
     defaultAddress?: { title: string; addressLine: string } | null;
@@ -39,6 +41,8 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
   const [kitchenTitle, setKitchenTitle] = useState("");
   const [kitchenDescription, setKitchenDescription] = useState("");
   const [deliveryRadiusKm, setDeliveryRadiusKm] = useState("3");
+  const [deliveryEnabled, setDeliveryEnabled] = useState(false);
+  const [deliveryTerms, setDeliveryTerms] = useState("");
   const [workingHoursText, setWorkingHoursText] = useState("Pzt-Cuma 10:00-20:00");
   const [editingDeliveryRadius, setEditingDeliveryRadius] = useState(false);
   const [editingWorkingHours, setEditingWorkingHours] = useState(false);
@@ -115,6 +119,8 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
       setKitchenTitle(json.data?.kitchenTitle?.trim() ?? "");
       setKitchenDescription(json.data?.kitchenDescription?.trim() ?? "");
       setDeliveryRadiusKm(String(json.data?.deliveryRadiusKm ?? 3));
+      setDeliveryEnabled(Boolean(json.data?.deliveryEnabled));
+      setDeliveryTerms(json.data?.deliveryTerms?.trim() ?? "");
       setStatus(json.data?.status ?? "incomplete");
       setDefaultAddress(json.data?.defaultAddress ? `${json.data.defaultAddress.title} - ${json.data.defaultAddress.addressLine}` : "Varsayılan adres yok");
       const hours = (json.data?.workingHours ?? []).map((x) => `${x.day} ${x.open}-${x.close}`).join(", ");
@@ -155,6 +161,8 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
           kitchenTitle: kitchenTitle.trim(),
           kitchenDescription: kitchenDescription.trim(),
           deliveryRadiusKm: Number(deliveryRadiusKm),
+          deliveryEnabled,
+          deliveryTerms: deliveryTerms.trim(),
           workingHours: parseWorkingHours(workingHoursText),
           submitForReview,
         }),
@@ -221,6 +229,32 @@ export default function SellerProfileScreen({ auth, onBack, onOpenAddresses, onA
             ) : null}
           </View>
 
+          <Text style={styles.label}>Teslimat ayarı</Text>
+          <TouchableOpacity
+            style={[styles.toggleCard, deliveryEnabled && styles.toggleCardActive]}
+            activeOpacity={0.85}
+            onPress={() => setDeliveryEnabled((prev) => !prev)}
+          >
+            <View style={styles.toggleTextWrap}>
+              <Text style={styles.toggleTitle}>{deliveryEnabled ? 'Teslimat açık' : 'Teslimat kapalı'}</Text>
+              <Text style={styles.toggleSub}>
+                {deliveryEnabled ? 'Sipariş bazında teslimat teklif edebilirsin.' : 'Siparişler varsayılan olarak Gel Al kalır.'}
+              </Text>
+            </View>
+            <View style={[styles.togglePill, deliveryEnabled && styles.togglePillActive]}>
+              <View style={[styles.toggleKnob, deliveryEnabled && styles.toggleKnobActive]} />
+            </View>
+          </TouchableOpacity>
+
+          <Text style={styles.label}>Teslimat koşulları</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={deliveryTerms}
+            onChangeText={setDeliveryTerms}
+            placeholder="Örn: 3 km içi, apartman kapısına teslim, akşam 21:00'e kadar."
+            multiline
+          />
+
           <Text style={styles.label}>Çalışma saatleri</Text>
           <View style={styles.readOnlyCard}>
             <View style={styles.readOnlyHeader}>
@@ -274,6 +308,44 @@ const styles = StyleSheet.create({
     borderColor: "#E4DBCD",
     padding: 10,
     gap: 8,
+  },
+  toggleCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E4DBCD",
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  toggleCardActive: {
+    borderColor: "#3F855C",
+    backgroundColor: "#F6FBF7",
+  },
+  toggleTextWrap: { flex: 1 },
+  toggleTitle: { color: "#2E241C", fontWeight: "800" },
+  toggleSub: { color: "#6C6055", marginTop: 4, lineHeight: 18 },
+  togglePill: {
+    width: 48,
+    height: 28,
+    borderRadius: 999,
+    backgroundColor: "#DED4C6",
+    padding: 3,
+    justifyContent: "center",
+  },
+  togglePillActive: {
+    backgroundColor: "#3F855C",
+  },
+  toggleKnob: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#fff",
+  },
+  toggleKnobActive: {
+    alignSelf: "flex-end",
   },
   readOnlyHeader: {
     flexDirection: "row",

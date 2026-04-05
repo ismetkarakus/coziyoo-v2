@@ -6,7 +6,7 @@ import { Pager, ExcelExportButton, PrintButton, SortableHeader } from "../compon
 import { DICTIONARIES } from "../lib/i18n";
 import { fmt, toDisplayId, formatTableHeader, formatCurrency } from "../lib/format";
 import { printModalContent } from "../lib/print";
-import { deliveryTypeLabel, normalizeDeliveryType } from "../lib/status";
+import { deliveryTypeLabel, normalizeDeliveryType, sellerDecisionStateLabel } from "../lib/status";
 import { renderCell } from "../lib/table";
 import type { Language, ApiError } from "../types/core";
 
@@ -145,9 +145,24 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       "requested_at",
       "estimated_delivery_time",
       "delivery_address_json",
+      "delivery_type",
+      "seller_delivery_note",
+      "seller_delivery_terms_snapshot",
     ]);
     const filtered = columns.filter((column) => !hiddenOrderColumns.has(column));
-    const preferred = ["created_at", "buyer_id", "seller_id", "status", "payment_completed"];
+    const preferred = [
+      "created_at",
+      "buyer_id",
+      "seller_id",
+      "status",
+      "seller_decision_state",
+      "requested_delivery_type",
+      "active_delivery_type",
+      "seller_promised_at",
+      "payment_captured_at",
+      "payment_completed",
+      "total_price",
+    ];
     const used = new Set<string>();
     const ordered: string[] = [];
     for (const name of preferred) {
@@ -194,8 +209,17 @@ export default function RecordsPage({ language, tableKey }: { language: Language
         buyer_id: "Alıcı",
         seller_id: "Satıcı",
         status: "Durum",
+        seller_decision_state: "Satıcı Kararı",
         payment_completed: "Ödeme",
-        delivery_type: "Teslimat Tipi",
+        delivery_type: "Eski Teslimat Tipi",
+        requested_delivery_type: "İstenen Tip",
+        active_delivery_type: "Aktif Tip",
+        seller_eta_minutes: "ETA (dk)",
+        seller_promised_at: "Planlanan Saat",
+        approved_at: "Onay Saati",
+        payment_captured_at: "Ödeme Alındı",
+        seller_delivery_note: "Satıcı Notu",
+        seller_delivery_terms_snapshot: "Teslimat Şartları",
         total_price: "Toplam Tutar",
         estimated_delivery_time: "Tahmini Teslimat",
         delivery_address_json: "Teslimat Adresi",
@@ -226,8 +250,17 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       buyer_id: "Alıcı",
       seller_id: "Satıcı",
       status: "Durum",
+      seller_decision_state: "Satıcı Kararı",
       payment_completed: "Ödeme Durumu",
-      delivery_type: "Teslimat Tipi",
+      delivery_type: "Eski Teslimat Tipi",
+      requested_delivery_type: "İstenen Tip",
+      active_delivery_type: "Aktif Tip",
+      seller_eta_minutes: "ETA (dk)",
+      seller_promised_at: "Planlanan Saat",
+      approved_at: "Onay Saati",
+      payment_captured_at: "Ödeme Alındı",
+      seller_delivery_note: "Satıcı Notu",
+      seller_delivery_terms_snapshot: "Teslimat Şartları",
       total_price: "Toplam Tutar",
       estimated_delivery_time: "Tahmini Teslimat",
       delivery_address_json: "Teslimat Adresi",
@@ -279,33 +312,37 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return `${pad2(date.getDate())}-${pad2(date.getMonth() + 1)}-${date.getFullYear()} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
   };
 
-  const normalizeBuyerFlowStatus = (rawStatus: unknown, deliveryType?: unknown): string => {
+  const normalizeBuyerFlowStatus = (rawStatus: unknown): string => {
     const status = String(rawStatus ?? "").trim().toLowerCase();
-    const delivery = normalizeDeliveryType(deliveryType);
-    if (delivery === "pickup") {
-      if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return "preparing";
-      if (status === "ready") return "ready";
-      if (status === "in_delivery") return "in_delivery";
-      if (status === "approaching") return "approaching";
-      if (status === "at_door") return "at_door";
-      if (status === "delivered" || status === "completed") return "delivered";
-      if (status === "rejected") return "cancelled";
-      return status;
-    }
-    if (["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing"].includes(status)) return "preparing";
-    if (status === "ready" || status === "in_delivery") return "in_delivery";
-    if (status === "at_door") return "at_door";
-    if (status === "delivered") return "delivered";
-    if (status === "completed") return "delivered";
     if (status === "rejected") return "cancelled";
     return status;
   };
 
   const orderStatusMeta = (rawStatus: unknown, deliveryType?: unknown): { label: string; note: string; toneClass: string } => {
-    const status = normalizeBuyerFlowStatus(rawStatus, deliveryType);
+    const status = normalizeBuyerFlowStatus(rawStatus);
     const delivery = normalizeDeliveryType(deliveryType);
     const isTr = language === "tr";
     const map: Record<string, { label: string; note: string; toneClass: string }> = {
+      pending_seller_approval: {
+        label: isTr ? "Satıcı Onayı Bekliyor" : "Waiting seller approval",
+        note: isTr ? "Sipariş satıcının kararını bekliyor" : "Order is waiting for seller decision",
+        toneClass: "is-pending",
+      },
+      seller_approved: {
+        label: isTr ? "Sipariş Onaylandı" : "Seller approved",
+        note: isTr ? "Satıcı siparişi kabul etti" : "Seller accepted the order",
+        toneClass: "is-approved",
+      },
+      awaiting_payment: {
+        label: isTr ? "Ödeme Bekleniyor" : "Awaiting payment",
+        note: isTr ? "Ödeme henüz alınmadı" : "Payment has not been captured yet",
+        toneClass: "is-pending",
+      },
+      paid: {
+        label: isTr ? "Ödeme Alındı" : "Payment captured",
+        note: isTr ? "Ödeme başarıyla alındı" : "Payment captured successfully",
+        toneClass: "is-paid",
+      },
       preparing: {
         label: isTr ? "Hazırlanıyor" : "Preparing",
         note: isTr ? "Sipariş hazırlanıyor" : "Order is being prepared",
@@ -372,8 +409,12 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     }
 
     if (column === "status") {
-      const meta = orderStatusMeta(value, row?.delivery_type);
+      const meta = orderStatusMeta(value, row?.active_delivery_type ?? row?.requested_delivery_type ?? row?.delivery_type);
       return <span className={`status-pill order-status-pill ${meta.toneClass}`}>{meta.label}</span>;
+    }
+
+    if (column === "seller_decision_state") {
+      return <span className="status-pill is-neutral">{sellerDecisionStateLabel(value)}</span>;
     }
 
     if (column === "payment_completed") {
@@ -385,8 +426,13 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       );
     }
 
-    if (column === "delivery_type") {
+    if (column === "delivery_type" || column === "requested_delivery_type" || column === "active_delivery_type") {
       return deliveryTypeLabel(value);
+    }
+
+    if (column === "seller_eta_minutes") {
+      const minutes = Number(value ?? NaN);
+      return Number.isFinite(minutes) && minutes > 0 ? `${minutes} dk` : "-";
     }
 
     if (column === "total_price" || column === "unit_price" || column === "line_total") {
@@ -411,13 +457,18 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       if (!raw) return "-";
       return userNameById[raw] ?? raw;
     }
-    if (column === "status") return orderStatusMeta(value, row?.delivery_type).label;
+    if (column === "status") return orderStatusMeta(value, row?.active_delivery_type ?? row?.requested_delivery_type ?? row?.delivery_type).label;
+    if (column === "seller_decision_state") return sellerDecisionStateLabel(value);
     if (column === "payment_completed") {
       const done = value === true || String(value).toLowerCase() === "true";
       return done ? dict.common.completed : dict.common.pending;
     }
-    if (column === "delivery_type") {
+    if (column === "delivery_type" || column === "requested_delivery_type" || column === "active_delivery_type") {
       return deliveryTypeLabel(value);
+    }
+    if (column === "seller_eta_minutes") {
+      const minutes = Number(value ?? NaN);
+      return Number.isFinite(minutes) && minutes > 0 ? `${minutes} dk` : "-";
     }
     if (column === "total_price" || column === "unit_price" || column === "line_total") {
       const amount = Number(value ?? 0);
@@ -646,11 +697,14 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       "buyer_id",
       "seller_id",
       "status",
-      "delivery_type",
+      "requested_delivery_type",
+      "active_delivery_type",
+      "seller_decision_state",
+      "seller_promised_at",
+      "payment_captured_at",
       "payment_completed",
       "total_price",
       "created_at",
-      "requested_at",
       "delivery_address_json",
     ] as const;
     const baseHeader = baseFields.map((key) => orderColumnLabel(key));
@@ -851,10 +905,11 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   }, [selectedOrderItems, foodNameById]);
 
   const selectedOrderId = String(selectedOrder?.id ?? "").trim();
-  const selectedStatusMeta = orderStatusMeta(selectedOrder?.status, selectedOrder?.delivery_type);
+  const selectedEffectiveDeliveryType = selectedOrder?.active_delivery_type ?? selectedOrder?.requested_delivery_type ?? selectedOrder?.delivery_type;
+  const selectedStatusMeta = orderStatusMeta(selectedOrder?.status, selectedEffectiveDeliveryType);
   const selectedStatusRaw = String(selectedOrder?.status ?? "").trim().toLowerCase();
   const selectedCancelReason = (() => {
-    if (selectedStatusRaw !== "cancelled") return "";
+    if (!["cancelled", "rejected"].includes(selectedStatusRaw)) return "";
     const candidates = [
       selectedOrderCancelReasonFromEvent,
       selectedOrder?.cancel_reason,
@@ -878,17 +933,20 @@ export default function RecordsPage({ language, tableKey }: { language: Language
   const selectedBuyerText = orderCellText("buyer_id", selectedOrder?.buyer_id);
   const selectedSellerText = orderCellText("seller_id", selectedOrder?.seller_id);
   const selectedDeliveryAddress = formatDeliveryAddress(selectedOrder?.delivery_address_json);
-  const selectedDeliveryAddressLabel = normalizeDeliveryType(selectedOrder?.delivery_type) === "pickup"
+  const selectedDeliveryAddressLabel = normalizeDeliveryType(selectedEffectiveDeliveryType) === "pickup"
     ? dict.records.deliveryTypePickup
     : dict.records.deliveryAddress;
   const selectedDeliveryType = (() => {
-    const normalized = normalizeDeliveryType(selectedOrder?.delivery_type);
+    const normalized = normalizeDeliveryType(selectedEffectiveDeliveryType);
     if (normalized === "pickup") return dict.records.deliveryTypePickup;
     if (normalized === "delivery") return dict.records.deliveryTypeHome;
-    const raw = String(selectedOrder?.delivery_type ?? "").trim().toLowerCase();
+    const raw = String(selectedEffectiveDeliveryType ?? "").trim().toLowerCase();
     if (raw.includes("courier")) return dict.records.deliveryTypeCourier;
     return raw || "-";
   })();
+  const selectedRequestedDeliveryType = deliveryTypeLabel(selectedOrder?.requested_delivery_type);
+  const selectedActiveDeliveryType = deliveryTypeLabel(selectedOrder?.active_delivery_type ?? selectedOrder?.delivery_type);
+  const selectedSellerDecision = sellerDecisionStateLabel(selectedOrder?.seller_decision_state);
   const selectedCreatedAt = (() => {
     const raw = String(selectedOrder?.created_at ?? "").trim();
     if (!raw) return "-";
@@ -902,6 +960,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return Number.isNaN(parsed) ? raw : new Date(parsed).toLocaleString(language === "tr" ? "tr-TR" : "en-US");
   })();
   const selectedPaymentStatus = (() => {
+    if (selectedOrder?.payment_captured_at) return "Ödeme Alındı";
     const raw = selectedOrder?.payment_completed;
     if (typeof raw === "boolean") return raw ? "Ödendi" : "Bekliyor";
     const text = String(raw ?? "").trim().toLowerCase();
@@ -917,7 +976,7 @@ export default function RecordsPage({ language, tableKey }: { language: Language
     return String(raw ?? "-");
   })();
   const selectedDeliveryFee = (() => {
-    if (normalizeDeliveryType(selectedOrder?.delivery_type) !== "delivery") return null;
+    if (normalizeDeliveryType(selectedEffectiveDeliveryType) !== "delivery") return null;
     const direct = Number(selectedOrder?.delivery_fee ?? (selectedOrder as Record<string, unknown> | null)?.deliveryFee ?? NaN);
     if (Number.isFinite(direct) && direct >= 0) return direct;
     if (selectedOrderItems.length === 0) return null;
@@ -957,6 +1016,24 @@ export default function RecordsPage({ language, tableKey }: { language: Language
       ...withoutReordered.slice(quantityIndex + 1),
     ];
   })();
+  const selectedSellerPromisedAt = orderCellText("seller_promised_at", selectedOrder?.seller_promised_at);
+  const selectedApprovedAt = orderCellText("approved_at", selectedOrder?.approved_at);
+  const selectedPaymentCapturedAt = orderCellText("payment_captured_at", selectedOrder?.payment_captured_at);
+  const selectedSellerEta = orderCellText("seller_eta_minutes", selectedOrder?.seller_eta_minutes);
+  const selectedSellerDeliveryNote = String(selectedOrder?.seller_delivery_note ?? "").trim();
+  const selectedSellerDeliveryTerms = String(selectedOrder?.seller_delivery_terms_snapshot ?? "").trim();
+  const orderEventLabel = (eventType: string, toStatus: string, deliveryType?: unknown) => {
+    const type = eventType.trim().toLowerCase();
+    if (type === "order_created") return language === "tr" ? "Sipariş oluşturuldu" : "Order created";
+    if (type === "seller_plan_revised") return language === "tr" ? "Plan güncellendi" : "Plan revised";
+    if (type === "seller_approved") return language === "tr" ? "Sipariş onaylandı" : "Seller approved";
+    if (type === "payment_captured") return language === "tr" ? "Ödeme alındı" : "Payment captured";
+    if (type === "seller_rejected") return language === "tr" ? "Satıcı iptal etti" : "Seller rejected";
+    if (type === "delivery_pin_sent") return language === "tr" ? "Teslimat kodu gösterildi" : "Delivery PIN shown";
+    if (type === "delivery_pin_verified") return language === "tr" ? "Kod doğrulandı" : "PIN verified";
+    if (!toStatus) return type || "-";
+    return orderStatusMeta(toStatus, deliveryType).label;
+  };
 
   return (
     <div className="app">
@@ -1129,8 +1206,36 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     <strong>{selectedDeliveryType}</strong>
                   </div>
                   <div>
+                    <span>{language === "tr" ? "Alıcının İsteği" : "Buyer request"}</span>
+                    <strong>{selectedRequestedDeliveryType}</strong>
+                  </div>
+                  <div>
+                    <span>{language === "tr" ? "Satıcının Planı" : "Seller plan"}</span>
+                    <strong>{selectedActiveDeliveryType}</strong>
+                  </div>
+                  <div>
+                    <span>{language === "tr" ? "Satıcı Kararı" : "Seller decision"}</span>
+                    <strong>{selectedSellerDecision}</strong>
+                  </div>
+                  <div>
+                    <span>{language === "tr" ? "ETA" : "ETA"}</span>
+                    <strong>{selectedSellerEta}</strong>
+                  </div>
+                  <div>
+                    <span>{language === "tr" ? "Planlanan Saat" : "Planned time"}</span>
+                    <strong>{selectedSellerPromisedAt}</strong>
+                  </div>
+                  <div>
+                    <span>{language === "tr" ? "Onay Saati" : "Approved at"}</span>
+                    <strong>{selectedApprovedAt}</strong>
+                  </div>
+                  <div>
                     <span>{dict.records.paymentStatus}</span>
                     <strong>{selectedPaymentStatus}</strong>
+                  </div>
+                  <div>
+                    <span>{language === "tr" ? "Ödeme Alındı" : "Payment captured"}</span>
+                    <strong>{selectedPaymentCapturedAt}</strong>
                   </div>
                   {selectedDeliveryFee !== null ? (
                     <div>
@@ -1143,10 +1248,22 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                     <strong>{selectedTotal}</strong>
                   </div>
                 </article>
-                {selectedStatusRaw === "cancelled" ? (
+                {["cancelled", "rejected"].includes(selectedStatusRaw) ? (
                   <article className="records-order-info-card">
                     <span>{dict.records.cancelReason}</span>
                     <strong>{selectedCancelReason}</strong>
+                  </article>
+                ) : null}
+                {selectedSellerDeliveryNote ? (
+                  <article className="records-order-info-card">
+                    <span>{language === "tr" ? "Satıcı Notu" : "Seller note"}</span>
+                    <strong>{selectedSellerDeliveryNote}</strong>
+                  </article>
+                ) : null}
+                {selectedSellerDeliveryTerms ? (
+                  <article className="records-order-info-card">
+                    <span>{language === "tr" ? "Teslimat Şartları" : "Delivery terms"}</span>
+                    <strong>{selectedSellerDeliveryTerms}</strong>
                   </article>
                 ) : null}
               </div>
@@ -1204,38 +1321,27 @@ export default function RecordsPage({ language, tableKey }: { language: Language
                           const eventType = String(event.event_type ?? "").trim().toLowerCase();
                           const toStatusRaw = String(event.to_status ?? "").trim().toLowerCase();
                           const fromStatusRaw = String(event.from_status ?? "").trim().toLowerCase();
-                          const toStatus = normalizeBuyerFlowStatus(event.to_status);
-                          const fromStatus = normalizeBuyerFlowStatus(event.from_status);
                           return {
                             eventType,
                             createdAt: event.created_at,
                             toStatusRaw,
                             fromStatusRaw,
-                            toStatus,
-                            fromStatus,
                             actorId: String(event.actor_user_id ?? "").trim(),
                           };
                         })
                         .filter((event) => {
-                          if (["order_created", "payment_start"].includes(event.eventType)) return false;
-                          if (["pending_seller_approval", "seller_approved", "awaiting_payment"].includes(event.toStatusRaw)) return false;
-                          if (!event.toStatus) return false;
-                          if (!["preparing", "in_delivery", "at_door", "delivered", "completed", "cancelled"].includes(event.toStatus)) return false;
-                          if (event.fromStatusRaw && event.toStatusRaw && event.fromStatusRaw === event.toStatusRaw) return false;
+                          if (!event.eventType && !event.toStatusRaw) return false;
+                          if (event.eventType === "payment_start") return false;
+                          if (event.fromStatusRaw && event.toStatusRaw && event.fromStatusRaw === event.toStatusRaw && !["seller_plan_revised", "delivery_pin_verified"].includes(event.eventType)) {
+                            return false;
+                          }
                           return true;
-                        })
-                        .reduce<Array<{ createdAt: unknown; toStatus: string; fromStatus: string; actorId: string }>>((acc, event) => {
-                          const prev = acc[acc.length - 1];
-                          if (prev && prev.toStatus === event.toStatus) return acc;
-                          acc.push(event);
-                          return acc;
                         }, [])
                         .map((event, index) => (
                           <tr key={`event-${index}`}>
                             <td style={{ whiteSpace: "nowrap" }}>{formatOrderCreatedAt(event.createdAt)}</td>
                             <td>
-                              {event.fromStatus ? `${orderStatusMeta(event.fromStatus, selectedOrder?.delivery_type).label} → ` : ""}
-                              <strong>{orderStatusMeta(event.toStatus, selectedOrder?.delivery_type).label}</strong>
+                              <strong>{orderEventLabel(event.eventType, event.toStatusRaw, selectedEffectiveDeliveryType)}</strong>
                             </td>
                             <td>{event.actorId ? (userNameById[event.actorId] ?? shortUuid(event.actorId)) : "-"}</td>
                           </tr>

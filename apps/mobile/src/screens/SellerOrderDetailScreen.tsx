@@ -45,6 +45,15 @@ type OrderDetail = {
   id: string;
   orderNo?: string;
   status: string;
+  requestedDeliveryType?: 'pickup' | 'delivery' | string;
+  activeDeliveryType?: 'pickup' | 'delivery' | string;
+  sellerDecisionState?: 'pending' | 'revised' | 'approved' | 'rejected' | string;
+  sellerEtaMinutes?: number | null;
+  sellerPromisedAt?: string | null;
+  sellerDeliveryNote?: string | null;
+  sellerDeliveryTermsSnapshot?: string | null;
+  approvedAt?: string | null;
+  paymentCapturedAt?: string | null;
   createdAt?: string;
   buyerName?: string;
   deliveryType?: string;
@@ -182,6 +191,10 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [keyboardInset, setKeyboardInset] = useState(0);
   const [order, setOrder] = useState<OrderDetail | null>(null);
+  const [decisionDeliveryType, setDecisionDeliveryType] = useState<"pickup" | "delivery">("pickup");
+  const [decisionEtaMinutes, setDecisionEtaMinutes] = useState("30");
+  const [decisionNote, setDecisionNote] = useState("");
+  const [decisionReason, setDecisionReason] = useState("");
   const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scrollRef = useRef<ScrollView | null>(null);
 
@@ -264,6 +277,14 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
   }, [order?.id]);
 
   useEffect(() => {
+    if (!order) return;
+    setDecisionDeliveryType(order.activeDeliveryType === "delivery" ? "delivery" : "pickup");
+    setDecisionEtaMinutes(order.sellerEtaMinutes ? String(order.sellerEtaMinutes) : "30");
+    setDecisionNote(order.sellerDeliveryNote?.trim() ?? "");
+    setDecisionReason("");
+  }, [order?.id, order?.activeDeliveryType, order?.sellerEtaMinutes, order?.sellerDeliveryNote]);
+
+  useEffect(() => {
     const handleShow = (event: { endCoordinates?: { height?: number } }) => {
       setKeyboardInset(event?.endCoordinates?.height ?? 0);
     };
@@ -284,6 +305,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
     if (!order) return null;
     return getNextAction(order.status, order.deliveryType);
   }, [order?.status, order?.deliveryType]);
+  const isDecisionStage = Boolean(order && normalizeFlowStatus(order.status) === "pending_seller_approval");
   const actionColors = action ? actionTone(action.toStatus) : null;
   const shouldCheckPinBeforeComplete = useMemo(
     () =>
@@ -343,6 +365,42 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
       setPinModalVisible(false);
     }
   }, [shouldCheckPinBeforeComplete]);
+
+  async function submitSellerDecision(decision: "approve" | "revise" | "reject") {
+    if (!order) return;
+    setUpdating(true);
+    try {
+      const etaMinutes = Number(decisionEtaMinutes);
+      const body: Record<string, unknown> = { decision };
+      if (decision === "reject") {
+        body.reason = decisionReason.trim();
+      } else {
+        body.deliveryType = decisionDeliveryType;
+        body.etaMinutes = etaMinutes;
+        body.note = decisionNote.trim();
+      }
+
+      const res = await authedFetch(`/v1/orders/${order.id}/seller-decision`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error?.message ?? "Karar kaydedilemedi");
+      await loadOrder();
+      Alert.alert(
+        "Tamam",
+        decision === "approve"
+          ? "Sipariş onaylandı, ödeme otomatik alındı."
+          : decision === "revise"
+            ? "Sipariş planı güncellendi."
+            : "Sipariş iptal edildi.",
+      );
+    } catch (e) {
+      Alert.alert("Hata", e instanceof Error ? e.message : "Karar kaydedilemedi");
+    } finally {
+      setUpdating(false);
+    }
+  }
 
   async function runAction(action: { label: string; toStatus: string }): Promise<boolean> {
     if (!order) return false;
@@ -413,7 +471,7 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
         ref={scrollRef}
         contentContainerStyle={[
           styles.content,
-          action ? styles.contentWithStickyAction : null,
+          (action || isDecisionStage) ? styles.contentWithStickyAction : null,
           keyboardInset > 0
             ? { paddingBottom: 36 + keyboardInset + (shouldCheckPinBeforeComplete ? 96 : 0) }
             : null,
@@ -459,6 +517,81 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
               </TouchableOpacity>
             </View>
           ) : null}
+          {isDecisionStage ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Sipariş Kararı</Text>
+              <Text style={styles.meta}>Bu sipariş varsayılan olarak Gel Al başladı. İstersen teslimata çevirip şartlarını belirleyebilirsin.</Text>
+
+              <Text style={styles.inlineFieldLabel}>Teslimat tipi</Text>
+              <View style={styles.choiceRow}>
+                <TouchableOpacity
+                  style={[styles.choiceChip, decisionDeliveryType === "pickup" && styles.choiceChipActive]}
+                  activeOpacity={0.85}
+                  onPress={() => setDecisionDeliveryType("pickup")}
+                >
+                  <Text style={[styles.choiceChipText, decisionDeliveryType === "pickup" && styles.choiceChipTextActive]}>Gel Al</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.choiceChip, decisionDeliveryType === "delivery" && styles.choiceChipActive]}
+                  activeOpacity={0.85}
+                  onPress={() => setDecisionDeliveryType("delivery")}
+                >
+                  <Text style={[styles.choiceChipText, decisionDeliveryType === "delivery" && styles.choiceChipTextActive]}>Teslimat</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.inlineFieldLabel}>
+                {decisionDeliveryType === "delivery" ? "Tahmini varış (dk)" : "Hazır olma süresi (dk)"}
+              </Text>
+              <TextInput
+                style={styles.pinInput}
+                value={decisionEtaMinutes}
+                onChangeText={(value) => setDecisionEtaMinutes(value.replace(/[^0-9]/g, "").slice(0, 4))}
+                keyboardType="number-pad"
+                placeholder="Örn: 30"
+                placeholderTextColor="#9C8E81"
+              />
+
+              <Text style={styles.inlineFieldLabel}>
+                {decisionDeliveryType === "delivery" ? "Sipariş notu" : "Gel al notu"}
+              </Text>
+              <TextInput
+                style={[styles.pinInput, styles.noteInput]}
+                value={decisionNote}
+                onChangeText={setDecisionNote}
+                multiline
+                placeholder={decisionDeliveryType === "delivery" ? "Örn: Apartman kapısında teslim ederim." : "Örn: 30 dakikaya hazır olur."}
+                placeholderTextColor="#9C8E81"
+              />
+
+              <Text style={styles.inlineFieldLabel}>İptal sebebi</Text>
+              <TextInput
+                style={[styles.pinInput, styles.noteInput]}
+                value={decisionReason}
+                onChangeText={setDecisionReason}
+                multiline
+                placeholder="İptal edeceksen sebebi yaz."
+                placeholderTextColor="#9C8E81"
+              />
+
+              <View style={styles.decisionActions}>
+                <TouchableOpacity
+                  style={[styles.secondaryActionBtn, updating && styles.actionDisabled]}
+                  disabled={updating}
+                  onPress={() => { void submitSellerDecision("revise"); }}
+                >
+                  <Text style={styles.secondaryActionText}>Revize Et</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.rejectActionBtn, updating && styles.actionDisabled]}
+                  disabled={updating}
+                  onPress={() => { void submitSellerDecision("reject"); }}
+                >
+                  <Text style={styles.rejectActionText}>İptal Et</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : null}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Ürünler</Text>
             {(order.items ?? []).map((item, index) => (
@@ -494,6 +627,15 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
               <Text style={styles.productsTotalValue}>{Number(order.totalPrice ?? 0).toFixed(2)} TL</Text>
             </View>
           </View>
+          {(order.sellerPromisedAt || order.sellerDeliveryNote || order.sellerDeliveryTermsSnapshot) ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Aktif Plan</Text>
+              <Text style={styles.meta}>Tip: {order.activeDeliveryType === "delivery" ? "Teslimat" : "Gel Al"}</Text>
+              {order.sellerPromisedAt ? <Text style={styles.meta}>Hedef zaman: {formatOrderDate(order.sellerPromisedAt)}</Text> : null}
+              {order.sellerDeliveryNote ? <Text style={styles.meta}>Sipariş notu: {order.sellerDeliveryNote}</Text> : null}
+              {order.sellerDeliveryTermsSnapshot ? <Text style={styles.meta}>Genel koşul: {order.sellerDeliveryTermsSnapshot}</Text> : null}
+            </View>
+          ) : null}
 
           {action ? (
             <View style={styles.card}>
@@ -507,7 +649,17 @@ export default function SellerOrderDetailScreen({ auth, orderId, onBack, onAuthR
       )}
       </ScrollView>
 
-      {action ? (
+      {isDecisionStage ? (
+        <View style={styles.stickyActionBar}>
+          <TouchableOpacity
+            style={[styles.actionBtn, updating && styles.actionDisabled]}
+            disabled={updating}
+            onPress={() => { void submitSellerDecision("approve"); }}
+          >
+            <Text style={styles.actionText}>{updating ? "İşleniyor..." : "Onayla ve Ödemeyi Al"}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : action ? (
         <View style={styles.stickyActionBar}>
           <TouchableOpacity
             style={[
@@ -592,6 +744,49 @@ const styles = StyleSheet.create({
   linkText: { textDecorationLine: "underline" },
   itemRowWrap: { marginTop: 4 },
   addonMeta: { marginTop: 4, color: "#8A7D72", fontSize: 12.5 },
+  inlineFieldLabel: { marginTop: 12, color: "#2E241C", fontWeight: "700" },
+  choiceRow: { flexDirection: "row", gap: 8, marginTop: 8 },
+  choiceChip: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#DCCFBF",
+    backgroundColor: "#F8F4ED",
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  choiceChipActive: {
+    borderColor: "#3F855C",
+    backgroundColor: "#EAF5EE",
+  },
+  choiceChipText: { color: "#5B4F43", fontWeight: "700" },
+  choiceChipTextActive: { color: "#2D6A45" },
+  noteInput: {
+    minHeight: 84,
+    textAlignVertical: "top",
+    letterSpacing: 0,
+  },
+  decisionActions: { flexDirection: "row", gap: 8, marginTop: 12 },
+  secondaryActionBtn: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#DCCFBF",
+    backgroundColor: "#F6F1E8",
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  secondaryActionText: { color: "#5B4F43", fontWeight: "700" },
+  rejectActionBtn: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#C0392B",
+    backgroundColor: "#FDECEC",
+    paddingVertical: 11,
+    alignItems: "center",
+  },
+  rejectActionText: { color: "#A1261A", fontWeight: "700" },
   productsTotalRow: {
     marginTop: 10,
     paddingTop: 10,

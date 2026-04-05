@@ -7,6 +7,7 @@
     "orders": "Orders",
     "foods": "Foods",
     "admins": "Admin Users",
+    "orderFlow": "Order Flow",
     "investigation": "Complaint Review",
     "audit": "Audit",
     "apiTokens": "API Tokens",
