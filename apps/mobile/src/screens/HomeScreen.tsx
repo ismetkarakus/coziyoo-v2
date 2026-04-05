@@ -1090,12 +1090,15 @@ function FoodCard({
   }, [primaryImageUrl, meal.backgroundColor]);
 
   const allergens = Array.isArray(meal.allergens) ? meal.allergens : [];
-  const timeDistanceParts = [meal.time, meal.distance].filter((value) => String(value ?? "").trim().length > 0);
+  const mealDeliveryOptions = meal.deliveryOptions ?? { pickup: true, delivery: false };
+  const timeDistanceParts = [
+    meal.time,
+    mealDeliveryOptions.delivery ? meal.distance : "",
+  ].filter((value) => String(value ?? "").trim().length > 0);
   const timeDistanceText = timeDistanceParts.join(" · ");
   const stockSummary = Number.isFinite(meal.stock) && meal.stock > 0
     ? `Kalan: ${meal.stock}`
     : '';
-  const mealDeliveryOptions = meal.deliveryOptions ?? { pickup: true, delivery: false };
   const deliveryTypeLabel = mealDeliveryOptions.pickup && mealDeliveryOptions.delivery
     ? 'Gel Al / Getir'
     : mealDeliveryOptions.delivery
@@ -3315,7 +3318,7 @@ export default function HomeScreen({
                           deliveryType === 'delivery' && styles.deliveryTypeChipTextActive,
                         ]}
                       >
-                        {t('cta.home.delivery')}
+                        Getir
                       </Text>
                     </TouchableOpacity>
                   ) : null}

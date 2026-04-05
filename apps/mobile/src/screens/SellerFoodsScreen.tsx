@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { AuthSession } from "../utils/auth";
 import { loadAuthSession, refreshAuthSession } from "../utils/auth";
 import { actorRoleHeader } from "../utils/actorRole";
@@ -9,6 +10,8 @@ import { loadSettings } from "../utils/settings";
 import { theme } from "../theme/colors";
 import ScreenHeader from "../components/ScreenHeader";
 import { HOME_FOOD_CATEGORIES } from "../constants/foodCategories";
+
+const SELLER_FORM_PERSIST_KEY_PREFIX = "seller_food_form_fields_v1";
 
 type Props = {
   auth: AuthSession;
@@ -44,6 +47,7 @@ type SellerFood = {
   ingredients: string[];
   allergens: string[];
   preparationTimeMinutes: number | null;
+  maxDeliveryDistanceKm: number | null;
   isActive: boolean;
   stock: number;
 };
@@ -114,6 +118,9 @@ function normalizeSellerFood(item: Record<string, unknown>): SellerFood {
     preparationTimeMinutes: Number.isFinite(Number(item.preparationTimeMinutes))
       ? Number(item.preparationTimeMinutes)
       : (Number.isFinite(Number(item.preparation_time_minutes)) ? Number(item.preparation_time_minutes) : null),
+    maxDeliveryDistanceKm: Number.isFinite(Number(item.maxDeliveryDistanceKm))
+      ? Number(item.maxDeliveryDistanceKm)
+      : (Number.isFinite(Number(item.max_delivery_distance_km)) ? Number(item.max_delivery_distance_km) : null),
     isActive: toBool(item.isActive ?? item.is_active),
     stock: Number(item.stock ?? 0),
   };
@@ -247,14 +254,63 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
   const [addonLibraryVisible, setAddonLibraryVisible] = useState(false);
   const [addonLibraryKind, setAddonLibraryKind] = useState<AddonKind>("extra");
   const [addonLibraryPricing, setAddonLibraryPricing] = useState<AddonPricing>("free");
+  const [persistentFieldsHydrated, setPersistentFieldsHydrated] = useState(false);
   const [pendingInitialEditId, setPendingInitialEditId] = useState<string | null>(
     initialEditFood ? null : (initialEditFoodId ?? null),
+  );
+  const formPersistKey = useMemo(
+    () => `${SELLER_FORM_PERSIST_KEY_PREFIX}:${currentAuth.userId}`,
+    [currentAuth.userId],
   );
 
   useEffect(() => setCurrentAuth(auth), [auth]);
   useEffect(() => {
     setPendingInitialEditId(initialEditFood ? null : (initialEditFoodId ?? null));
   }, [initialEditFoodId, initialEditFood]);
+
+  useEffect(() => {
+    let active = true;
+    setPersistentFieldsHydrated(false);
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(formPersistKey);
+        if (!active) return;
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as {
+          startDate?: unknown;
+          endDate?: unknown;
+          deliveryDistanceKm?: unknown;
+        };
+        const hasInitialEditContext = Boolean(initialEditFood || initialEditFoodId);
+        if (!hasInitialEditContext) {
+          setStartDate(typeof parsed.startDate === "string" ? parsed.startDate : "");
+          setEndDate(typeof parsed.endDate === "string" ? parsed.endDate : "");
+          setDeliveryDistanceKm(
+            typeof parsed.deliveryDistanceKm === "string" ? parsed.deliveryDistanceKm : "",
+          );
+        }
+      } catch (error) {
+        console.warn("[seller-foods] failed to load persisted form fields", error);
+      } finally {
+        if (active) setPersistentFieldsHydrated(true);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [formPersistKey, initialEditFood, initialEditFoodId]);
+
+  useEffect(() => {
+    if (!persistentFieldsHydrated) return;
+    const payload = JSON.stringify({
+      startDate: startDate.trim(),
+      endDate: endDate.trim(),
+      deliveryDistanceKm: deliveryDistanceKm.trim(),
+    });
+    AsyncStorage.setItem(formPersistKey, payload).catch((error) => {
+      console.warn("[seller-foods] failed to persist form fields", error);
+    });
+  }, [persistentFieldsHydrated, formPersistKey, startDate, endDate, deliveryDistanceKm]);
 
   useLayoutEffect(() => {
     if (!initialEditFood) return;
@@ -389,12 +445,9 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
     setCuisine("");
     setCategoryId("");
     setDailyStock("");
-    setStartDate("");
-    setEndDate("");
     setPickupEnabled(true);
     setDeliveryEnabled(true);
     setDeliveryFee("");
-    setDeliveryDistanceKm("");
     setMenuItems([]);
     setFreeAddonNameInput("");
     setFreeAddonKindInput("extra");
@@ -423,7 +476,11 @@ export default function SellerFoodsScreen({ auth, onBack, initialEditFoodId, ini
     setDeliveryFee(food.deliveryFee ? String(food.deliveryFee) : "");
     setPickupEnabled(food.deliveryOptions?.pickup ?? true);
     setDeliveryEnabled(food.deliveryOptions?.delivery ?? true);
-    setDeliveryDistanceKm("");
+    setDeliveryDistanceKm(
+      Number.isFinite(Number(food.maxDeliveryDistanceKm)) && Number(food.maxDeliveryDistanceKm) > 0
+        ? String(food.maxDeliveryDistanceKm)
+        : "",
+    );
     const normalizedMenuItems = Array.isArray(food.menuItems)
       ? food.menuItems
         .map((item) => ({
@@ -932,7 +989,15 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
   const previewMeta = prepTime.trim() ? `${prepTime.trim()} dk` : "40 dk";
   const previewDistance = deliveryEnabled
     ? `${deliveryDistanceKm.trim() || "14.76"} km`
-    : "Gel Al";
+    : "";
+  const previewMetaText = [previewMeta, previewDistance].filter(Boolean).join(" · ");
+  const previewDeliveryTypeLabel = pickupEnabled && deliveryEnabled
+    ? "Gel Al / Getir"
+    : pickupEnabled
+      ? "Gel Al"
+      : deliveryEnabled
+        ? "Getir"
+        : "-";
   const previewAllergens = allergens
     .split(",")
     .map((item) => item.trim())
@@ -1349,9 +1414,12 @@ function openAddonLibrary(pricing: AddonPricing, kind: AddonKind) {
                     <Text style={styles.previewCuisine}>{previewCuisine}</Text>
                   </View>
                 </View>
+                <Text style={styles.previewDeliveryTypeText}>
+                  Teslimat Tipi: {previewDeliveryTypeLabel}
+                </Text>
                 <View style={styles.previewMidRow}>
                   <Ionicons name="time-outline" size={13} color="#8A7A6A" />
-                  <Text style={styles.previewMetaText}>{`${previewMeta} · ${previewDistance}`}</Text>
+                  <Text style={styles.previewMetaText}>{previewMetaText}</Text>
                 </View>
                 <View style={styles.previewFooter}>
                   <Text style={styles.previewFooterPlaceholder} />
@@ -1776,6 +1844,7 @@ const styles = StyleSheet.create({
   previewFoodSummary: { color: "#6F6358", marginTop: 2, fontSize: 14, fontWeight: "600" },
   previewSeller: { color: "#5A4B3F", fontWeight: "700", fontSize: 16 },
   previewCuisine: { color: "#7D6D60", fontWeight: "700", fontSize: 14, marginTop: 2 },
+  previewDeliveryTypeText: { marginTop: 8, color: "#5A4B3F", fontWeight: "700", fontSize: 13 },
   previewMidRow: { marginTop: 8, flexDirection: "row", alignItems: "center", gap: 5 },
   previewMetaText: { color: "#7D6D60", fontWeight: "600", fontSize: 13 },
   previewFooter: { marginTop: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
