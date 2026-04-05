@@ -645,7 +645,7 @@ export default function SellerHomeScreen({
             <Text style={styles.quickButtonText}>Yemek Yönetimi</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickLpiPill} activeOpacity={0.85} onPress={onOpenFinance}>
-            <Text style={styles.quickButtonText}>Cüzdanım</Text>
+            <Text style={[styles.quickButtonText, styles.quickWalletButtonText]}>Cüzdanım</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -974,6 +974,9 @@ const styles = StyleSheet.create({
     ...(Platform.OS === "ios"
       ? { fontFamily: "AvenirNextCondensed-Bold" }
       : { fontFamily: "sans-serif-condensed", includeFontPadding: false }),
+  },
+  quickWalletButtonText: {
+    fontSize: 19,
   },
   quickLpiPill: {
     flex: 1,
