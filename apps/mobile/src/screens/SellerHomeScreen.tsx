@@ -513,14 +513,18 @@ export default function SellerHomeScreen({
   const todayOrders = useMemo(() => {
     const now = new Date();
     const useTurkeyTime = sellerCountryCode === "TR";
-    const filtered = orders.filter((o) => {
+    const scoped = orders.filter((o) => {
       if (o.sellerId && o.sellerId !== currentAuth.userId) return false;
       if (!["pending_seller_approval", "seller_approved", "awaiting_payment", "paid", "preparing", "ready", "in_delivery", "approaching", "at_door", "delivered", "completed", "cancelled", "rejected"].includes(o.status)) return false;
-      const activityAt = parseApiDate(o.updatedAt) ?? parseApiDate(o.createdAt);
+      return true;
+    });
+    const filtered = scoped.filter((o) => {
+      const activityAt = parseApiDate(o.createdAt) ?? parseApiDate(o.updatedAt);
       if (!activityAt) return false;
       return isCurrentBusinessDay(activityAt, now, useTurkeyTime);
     });
-    return filtered;
+    // Fallback: timezone/date parse edge-case durumunda sipariş listesi tamamen kaybolmasın.
+    return filtered.length > 0 ? filtered : scoped;
   }, [orders, currentAuth.userId, clockMs, sellerCountryCode]);
 
   const groupedOrders = useMemo(() => {
@@ -645,7 +649,7 @@ export default function SellerHomeScreen({
             <Text style={styles.quickButtonText}>Yemek Yönetimi</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.quickLpiPill} activeOpacity={0.85} onPress={onOpenFinance}>
-            <Text style={styles.quickWalletButtonText}>Ciro</Text>
+            <Text style={[styles.quickButtonText, styles.quickWalletButtonText]}>Cüzdanım</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -975,6 +979,9 @@ const styles = StyleSheet.create({
       ? { fontFamily: "AvenirNextCondensed-Bold" }
       : { fontFamily: "sans-serif-condensed", includeFontPadding: false }),
   },
+  quickWalletButtonText: {
+    fontSize: 19,
+  },
   quickLpiPill: {
     flex: 1,
     height: 46,
@@ -985,14 +992,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9E9D5",
     alignItems: "center",
     justifyContent: "center",
-  },
-  quickWalletButtonText: {
-    color: "#1D5634",
-    fontSize: 19,
-    fontWeight: "800",
-    ...(Platform.OS === "ios"
-      ? { fontFamily: "AvenirNextCondensed-Bold" }
-      : { fontFamily: "sans-serif-condensed", includeFontPadding: false }),
   },
   ordersScroll: { flex: 1 },
   ordersContent: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 48 },
