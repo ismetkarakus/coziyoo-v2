@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   pageTitle: {
     color: "#2E241C",
     fontWeight: "900",
-    fontSize: 19,
+    fontSize: 20,
     marginTop: 0,
     marginBottom: 0,
   },
