@@ -185,9 +185,12 @@ export default function SellerProfileDetailScreen({
       const baseUrl = settings.apiUrl;
       setApiUrl(baseUrl);
       const profileRes = await authedFetch("/v1/seller/profile", baseUrl, undefined);
-      const profileJson = await profileRes.json();
-      if (!profileRes.ok) throw new Error(profileJson?.error?.message ?? "Profil yüklenemedi");
-      const loaded: SellerProfile = profileJson.data ?? null;
+      const profilePayload = await readResponsePayload(profileRes);
+      if (!profileRes.ok || profilePayload.json === null) {
+        throw new Error(responseErrorMessage(profileRes, profilePayload, "Profil yüklenemedi"));
+      }
+      const profileJson = profilePayload.json as { data?: SellerProfile };
+      const loaded: SellerProfile | null = profileJson.data ?? null;
       setSellerProfileCache(loaded);
       setProfile(loaded);
       setMasterName(String(loaded?.displayName ?? "").trim());
@@ -204,7 +207,8 @@ export default function SellerProfileDetailScreen({
       setSpecialties(Array.isArray(loaded?.kitchenSpecialties) ? loaded.kitchenSpecialties : []);
 
       const meRes = await authedFetch("/v1/auth/me", baseUrl, undefined);
-      const meJson = await meRes.json();
+      const mePayload = await readResponsePayload(meRes);
+      const meJson = mePayload.json as { data?: Record<string, unknown> } | null;
       if (meRes.ok && meJson?.data) {
         const fullNameVal = String(meJson.data.fullName ?? "").trim();
         const dobVal = formatDobForDisplay(String(meJson.data.dob ?? ""));
@@ -270,10 +274,11 @@ export default function SellerProfileDetailScreen({
           dataBase64: base64Image,
         }),
       });
-      const uploadJson = await uploadRes.json();
-      if (!uploadRes.ok) {
-        throw new Error(uploadJson?.error?.message ?? "Profil resmi yüklenemedi");
+      const uploadPayload = await readResponsePayload(uploadRes);
+      if (!uploadRes.ok || uploadPayload.json === null) {
+        throw new Error(responseErrorMessage(uploadRes, uploadPayload, "Profil resmi yüklenemedi"));
       }
+      const uploadJson = uploadPayload.json as { data?: { profileImageUrl?: string } };
       const nextUrl = String(uploadJson?.data?.profileImageUrl ?? "").trim();
       if (nextUrl) {
         setProfile((prev) => (prev ? { ...prev, profileImageUrl: nextUrl } : prev));
