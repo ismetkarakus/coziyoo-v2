@@ -1,12 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 import { z } from "zod";
 
-const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const apiDir = path.resolve(moduleDir, "../..");
-const repoRoot = path.resolve(apiDir, "../..");
+const cwd = process.cwd();
+const apiDir = path.basename(cwd) === "api" ? cwd : path.resolve(cwd, "apps/api");
+const repoRoot = path.basename(cwd) === "api" ? path.resolve(cwd, "../..") : cwd;
 
 for (const envPath of [path.join(repoRoot, ".env"), path.join(apiDir, ".env")]) {
   if (fs.existsSync(envPath)) {
