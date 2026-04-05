@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   tabBtn: {
     flex: 1,
     borderRadius: 999,
-    paddingVertical: 7,
+    paddingVertical: 9,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E9E5DE",
   },
   tabBtnActive: { backgroundColor: "#8EA08A" },
-  tabText: { color: "#2E241C", fontWeight: "700", fontSize: 11 },
+  tabText: { color: "#2E241C", fontWeight: "700", fontSize: 13 },
   tabTextActive: { color: "#FFFFFF" },
 
   balanceCard: {
