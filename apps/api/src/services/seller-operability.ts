@@ -16,6 +16,11 @@ export type SellerOperateGate = {
   canOperate: boolean;
 };
 
+function isSchemaCompatError(error: unknown): boolean {
+  const code = String((error as { code?: unknown } | null)?.code ?? "");
+  return ["42P01", "42703", "42883", "3F000"].includes(code);
+}
+
 async function ensureSellerComplianceAssignments(queryable: Queryable, sellerId: string) {
   await queryable.query(
     `INSERT INTO seller_compliance_documents (
@@ -70,29 +75,41 @@ export async function getSellerOperateGate(queryable: Queryable, sellerId: strin
   );
   if ((profileResult.rowCount ?? 0) === 0) return null;
 
-  await ensureSellerComplianceAssignments(queryable, sellerId);
+  let complianceRequiredCount = 0;
+  let complianceUploadedRequiredCount = 0;
+  let complianceMissingRequiredCount = 0;
+  try {
+    await ensureSellerComplianceAssignments(queryable, sellerId);
 
-  const complianceCounts = await queryable.query<{
-    required_count: string;
-    uploaded_count: string;
-  }>(
-    `SELECT
-       count(*)::text AS required_count,
-       count(*) FILTER (
-         WHERE scd.id IS NOT NULL
-           AND scd.status IN ('uploaded', 'approved')
-           AND coalesce(scd.expired, FALSE) = FALSE
-           AND (scd.expires_at IS NULL OR scd.expires_at > now())
-       )::text AS uploaded_count
-     FROM compliance_documents_list cdl
-     LEFT JOIN seller_compliance_documents scd
-       ON scd.document_list_id = cdl.id
-      AND scd.seller_id = $1
-      AND scd.is_current = TRUE
-     WHERE cdl.is_active = TRUE
-       AND cdl.is_required_default = TRUE`,
-    [sellerId],
-  );
+    const complianceCounts = await queryable.query<{
+      required_count: string;
+      uploaded_count: string;
+    }>(
+      `SELECT
+         count(*)::text AS required_count,
+         count(*) FILTER (
+           WHERE scd.id IS NOT NULL
+             AND scd.status IN ('uploaded', 'approved')
+             AND coalesce(scd.expired, FALSE) = FALSE
+             AND (scd.expires_at IS NULL OR scd.expires_at > now())
+         )::text AS uploaded_count
+       FROM compliance_documents_list cdl
+       LEFT JOIN seller_compliance_documents scd
+         ON scd.document_list_id = cdl.id
+        AND scd.seller_id = $1
+        AND scd.is_current = TRUE
+       WHERE cdl.is_active = TRUE
+         AND cdl.is_required_default = TRUE`,
+      [sellerId],
+    );
+    complianceRequiredCount = Number(complianceCounts.rows[0]?.required_count ?? "0");
+    complianceUploadedRequiredCount = Number(complianceCounts.rows[0]?.uploaded_count ?? "0");
+    complianceMissingRequiredCount = Math.max(0, complianceRequiredCount - complianceUploadedRequiredCount);
+  } catch (error) {
+    if (!isSchemaCompatError(error)) throw error;
+    const code = String((error as { code?: unknown } | null)?.code ?? "unknown");
+    console.warn("[seller-operability] compliance schema not ready, using profile-only gate", { sellerId, code });
+  }
 
   const row = profileResult.rows[0];
   const hasPhone = Boolean(row.phone?.trim());
@@ -103,9 +120,6 @@ export async function getSellerOperateGate(queryable: Queryable, sellerId: strin
   const hasWorkingHours = Array.isArray(row.working_hours_json) && row.working_hours_json.length > 0;
   const profileComplete = hasPhone && hasDefaultAddress && hasKitchenTitle && hasKitchenDescription && hasDeliveryRadius && hasWorkingHours;
 
-  const complianceRequiredCount = Number(complianceCounts.rows[0]?.required_count ?? "0");
-  const complianceUploadedRequiredCount = Number(complianceCounts.rows[0]?.uploaded_count ?? "0");
-  const complianceMissingRequiredCount = Math.max(0, complianceRequiredCount - complianceUploadedRequiredCount);
   const canOperate = profileComplete && complianceMissingRequiredCount === 0;
 
   return {
