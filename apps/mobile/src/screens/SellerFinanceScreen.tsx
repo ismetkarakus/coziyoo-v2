@@ -472,6 +472,38 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
                 <Text style={styles.withdrawRequestBtnText}>Para Çekme Talebi Oluştur</Text>
               </TouchableOpacity>
             </View>
+
+            <View style={styles.bankInfoCard}>
+              <View style={styles.bankInfoTitleRow}>
+                <Ionicons name="business-outline" size={13} color="#3B3129" />
+                <Text style={styles.bankInfoTitle}>Kart Bilgilerim</Text>
+              </View>
+              <TextInput
+                style={styles.input}
+                value={iban}
+                onChangeText={setIban}
+                placeholder="IBAN (TR...)"
+                placeholderTextColor="#8A7A6A"
+              />
+              <TextInput
+                style={styles.input}
+                value={cardNumber}
+                onChangeText={setCardNumber}
+                placeholder="Kart Numarası"
+                placeholderTextColor="#8A7A6A"
+                keyboardType="number-pad"
+              />
+              <TextInput
+                style={styles.input}
+                value={holder}
+                onChangeText={setHolder}
+                placeholder="Hesap sahibi"
+                placeholderTextColor="#8A7A6A"
+              />
+              <TouchableOpacity style={styles.saveBtn} onPress={() => void saveBankAccount()}>
+                <Text style={styles.saveText}>Banka Hesabını Kaydet</Text>
+              </TouchableOpacity>
+            </View>
           </>
         ) : null}
       </ScrollView>
