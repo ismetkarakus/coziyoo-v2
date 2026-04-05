@@ -77,6 +77,23 @@ function formatMoney(value: number, currency: string): string {
   return `${amount.toFixed(2)} ${currency || "TRY"}`;
 }
 
+function normalizeErrorMessage(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isMissingBankDetailError(status: number, payload: unknown): boolean {
+  if (status === 404) return true;
+  if (!payload || typeof payload !== "object") return false;
+  const row = payload as Record<string, unknown>;
+  const msg = normalizeErrorMessage((row.error as Record<string, unknown> | undefined)?.message ?? row.message);
+  const code = normalizeErrorMessage((row.error as Record<string, unknown> | undefined)?.code ?? row.code);
+  if (msg.includes("bank detail is not exist")) return true;
+  if (msg.includes("bank") && msg.includes("not exist")) return true;
+  if (msg.includes("bank") && msg.includes("not found")) return true;
+  if (code.includes("not_exist") || code.includes("not_found")) return true;
+  return false;
+}
+
 export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Props) {
   const [apiUrl, setApiUrl] = useState("http://localhost:3000");
   const [currentAuth, setCurrentAuth] = useState(auth);
@@ -121,26 +138,43 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
       const baseUrl = settings.apiUrl;
       setApiUrl(baseUrl);
       const sellerId = currentAuth.userId;
-      const [summaryRes, balanceRes, payoutsRes, bankRes] = await Promise.all([
+      const [summaryRes, balanceRes, payoutsRes] = await Promise.all([
         authedFetch(`/v1/sellers/${sellerId}/finance/summary`, undefined, baseUrl),
         authedFetch(`/v1/sellers/${sellerId}/finance/balance`, undefined, baseUrl),
         authedFetch(`/v1/sellers/${sellerId}/finance/payouts?page=1&pageSize=20`, undefined, baseUrl),
-        authedFetch(`/v1/sellers/${sellerId}/bank-account`, undefined, baseUrl),
       ]);
       const summaryJson = await summaryRes.json();
       const balanceJson = await balanceRes.json();
       const payoutsJson = await payoutsRes.json();
-      const bankJson = await readJsonSafe<{ data?: SellerBankAccount | null; error?: { message?: string } }>(bankRes);
       if (!summaryRes.ok) throw new Error(summaryJson?.error?.message ?? "Finans özeti alınamadı");
       if (!balanceRes.ok) throw new Error(balanceJson?.error?.message ?? "Bakiye alınamadı");
       if (!payoutsRes.ok) throw new Error(payoutsJson?.error?.message ?? "Payout listesi alınamadı");
       setSummary(summaryJson?.data ?? null);
       setBalance(balanceJson?.data ?? null);
       setPayouts(Array.isArray(payoutsJson?.data) ? payoutsJson.data : []);
-      if (!bankRes.ok && bankRes.status !== 404) {
-        throw new Error(bankJson?.error?.message ?? "Banka hesabı alınamadı");
+      const bankGetPaths = [
+        `/v1/sellers/${sellerId}/bank-account`,
+        `/v1/sellers/${sellerId}/finance/bank-account`,
+      ];
+      let bankData: SellerBankAccount | null = null;
+      let bankErrorMessage: string | null = null;
+      for (const path of bankGetPaths) {
+        const bankRes = await authedFetch(path, undefined, baseUrl);
+        const bankJson = await readJsonSafe<{ data?: SellerBankAccount | null; error?: { message?: string } }>(bankRes);
+        if (bankRes.ok) {
+          bankData = (bankJson?.data ?? null) as SellerBankAccount | null;
+          bankErrorMessage = null;
+          break;
+        }
+        if (isMissingBankDetailError(bankRes.status, bankJson)) {
+          bankData = null;
+          bankErrorMessage = null;
+          break;
+        }
+        if (bankRes.status === 404) continue;
+        bankErrorMessage = String(bankJson?.error?.message ?? "Banka hesabı alınamadı");
       }
-      const bankData = bankRes.ok ? ((bankJson?.data ?? null) as SellerBankAccount | null) : null;
+      if (bankErrorMessage) throw new Error(bankErrorMessage);
       setIban(typeof bankData?.iban === "string" ? bankData.iban : "");
       setHolder(typeof bankData?.accountHolderName === "string" ? bankData.accountHolderName : "");
       setCardNumber(typeof bankData?.cardNumber === "string" ? bankData.cardNumber : "");
@@ -161,17 +195,41 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
         Alert.alert("Hata", "IBAN ve hesap sahibi zorunlu.");
         return;
       }
-      const res = await authedFetch(`/v1/sellers/${currentAuth.userId}/bank-account`, {
-        method: "PUT",
-        body: JSON.stringify({
-          iban: iban.trim(),
-          accountHolderName: holder.trim(),
-          cardNumber: cardNumber.trim() || undefined,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error?.message ?? "Banka hesabı kaydedilemedi");
+      const payload = {
+        iban: iban.trim(),
+        accountHolderName: holder.trim(),
+        cardNumber: cardNumber.trim() || undefined,
+      };
+      const sellerId = currentAuth.userId;
+      const candidateRequests: Array<{ method: "PUT" | "POST"; path: string }> = [
+        { method: "PUT", path: `/v1/sellers/${sellerId}/bank-account` },
+        { method: "POST", path: `/v1/sellers/${sellerId}/bank-account` },
+        { method: "PUT", path: `/v1/sellers/${sellerId}/finance/bank-account` },
+        { method: "POST", path: `/v1/sellers/${sellerId}/finance/bank-account` },
+      ];
+
+      let lastError = "Banka hesabı kaydedilemedi";
+      let saved = false;
+      for (const req of candidateRequests) {
+        const res = await authedFetch(req.path, { method: req.method, body: JSON.stringify(payload) });
+        const json = await readJsonSafe<{ error?: { message?: string } }>(res);
+        if (res.ok) {
+          saved = true;
+          break;
+        }
+        if (isMissingBankDetailError(res.status, json)) {
+          lastError = "Banka hesabı henüz yok. Kaydetmek için tekrar dene.";
+          continue;
+        }
+        if (res.status === 404 || res.status === 405) {
+          lastError = String(json?.error?.message ?? lastError);
+          continue;
+        }
+        lastError = String(json?.error?.message ?? lastError);
+      }
+      if (!saved) throw new Error(lastError);
       Alert.alert("Tamam", "Banka hesabı güncellendi.");
+      void loadData();
     } catch (e) {
       Alert.alert("Hata", e instanceof Error ? e.message : "Banka hesabı kaydedilemedi");
     }
