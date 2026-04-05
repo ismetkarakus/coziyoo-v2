@@ -22,6 +22,15 @@ type OrderDetail = {
   sellerId: string;
   status: string;
   deliveryType: 'pickup' | 'delivery';
+  requestedDeliveryType?: 'pickup' | 'delivery';
+  activeDeliveryType?: 'pickup' | 'delivery';
+  sellerDecisionState?: 'pending' | 'revised' | 'approved' | 'rejected';
+  sellerEtaMinutes?: number | null;
+  sellerPromisedAt?: string | null;
+  sellerDeliveryNote?: string | null;
+  sellerDeliveryTermsSnapshot?: string | null;
+  approvedAt?: string | null;
+  paymentCapturedAt?: string | null;
   deliveryAddress: unknown;
   sellerAddress?: {
     title?: string;
@@ -460,10 +469,7 @@ export default function OrderDetailScreen({
 
   const canCancel = isBuyer && CANCELLABLE.includes(order.status);
   const canComplete = false;
-  const canPay =
-    isBuyer &&
-    !order.paymentCompleted &&
-    ['pending_seller_approval', 'seller_approved', 'awaiting_payment'].includes(order.status);
+  const canPay = false;
   const canReview = isBuyer && ['delivered', 'completed'].includes(order.status);
   const canComplain = isBuyer && ['at_door', 'delivered', 'completed'].includes(order.status);
   const pickupProgressAction = isBuyer ? nextPickupProgressAction(order.status, order.deliveryType) : null;
@@ -615,6 +621,29 @@ export default function OrderDetailScreen({
           <SectionDivider icon="calendar-outline" label="Sipariş Tarihi" />
           <Text style={styles.sectionValue}>{formatEventDate(order.createdAt)}</Text>
         </View>
+
+        {(order.sellerPromisedAt || order.sellerDeliveryNote || order.sellerDeliveryTermsSnapshot) ? (
+          <View style={styles.section}>
+            <SectionDivider icon="sparkles-outline" label="Satıcının Planı" />
+            <Text style={styles.sectionValue}>
+              {order.activeDeliveryType === 'delivery' ? 'Teslimat' : 'Gel Al'}
+            </Text>
+            {order.sellerPromisedAt ? (
+              <Text style={styles.sectionHint}>
+                {order.activeDeliveryType === 'delivery' ? 'Tahmini varış' : 'Hazır olacağı zaman'}: {formatEventDate(order.sellerPromisedAt)}
+              </Text>
+            ) : null}
+            {order.paymentCapturedAt ? (
+              <Text style={styles.sectionHint}>Ödeme alındı: {formatEventDate(order.paymentCapturedAt)}</Text>
+            ) : null}
+            {order.sellerDeliveryNote ? (
+              <Text style={styles.sectionHint}>Sipariş notu: {order.sellerDeliveryNote}</Text>
+            ) : null}
+            {order.sellerDeliveryTermsSnapshot ? (
+              <Text style={styles.sectionHint}>Teslimat koşulları: {order.sellerDeliveryTermsSnapshot}</Text>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* Timeline */}
         <View style={styles.section}>
@@ -769,6 +798,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   sectionValue: { color: theme.text, fontSize: 15, fontWeight: '600', lineHeight: 22 },
+  sectionHint: { color: '#71685F', fontSize: 13.5, lineHeight: 20, marginTop: 6 },
   sectionValueLink: { textDecorationLine: 'underline' },
   itemRowWrap: { marginBottom: 6 },
   itemMainLine: { color: theme.text, fontSize: 14, fontWeight: '600', paddingVertical: 6 },
