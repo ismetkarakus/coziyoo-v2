@@ -85,14 +85,14 @@ if (Notifications) {
   });
 }
 
-async function registerPushToken(auth: AuthSession, apiUrl: string) {
-  if (!Notifications) return;
+async function registerPushToken(auth: AuthSession, apiUrl: string): Promise<string | null> {
+  if (!Notifications) return null;
   try {
     const { status: existing } = await Notifications.getPermissionsAsync();
     const { status } = existing === 'granted'
       ? { status: existing }
       : await Notifications.requestPermissionsAsync();
-    if (status !== 'granted') return;
+    if (status !== 'granted') return null;
 
     const tokenData = await Notifications.getExpoPushTokenAsync();
     const token = tokenData.data;
@@ -106,8 +106,25 @@ async function registerPushToken(auth: AuthSession, apiUrl: string) {
       },
       body: JSON.stringify({ token, platform }),
     });
+    return token;
   } catch {
     // Push registration is best-effort; never block the user
+    return null;
+  }
+}
+
+async function unregisterPushToken(auth: AuthSession, apiUrl: string, token?: string | null) {
+  try {
+    await fetch(`${apiUrl}/v1/notifications/device-token`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${auth.accessToken}`,
+      },
+      body: token ? JSON.stringify({ token }) : JSON.stringify({}),
+    });
+  } catch {
+    // Push unregistration is best-effort; never block logout
   }
 }
 
@@ -197,6 +214,7 @@ export default function App() {
 
   const [isNewRegistration, setIsNewRegistration] = useState(false);
   const responseListener = useRef<NotificationSubscription | null>(null);
+  const pushTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     loadAuthSession().then((stored) => {
@@ -216,7 +234,9 @@ export default function App() {
     if (!Notifications) return;
 
     loadSettings().then((s) => {
-      void registerPushToken(auth, s.apiUrl);
+      registerPushToken(auth, s.apiUrl)
+        .then((token) => { pushTokenRef.current = token ?? null; })
+        .catch(() => { pushTokenRef.current = null; });
     });
 
     // Navigate to order detail when notification is tapped
@@ -247,8 +267,18 @@ export default function App() {
   }
 
   async function handleLogout() {
+    const currentAuth = auth;
     setScreen('login');
     setAuth(null);
+    if (currentAuth) {
+      try {
+        const { apiUrl } = await loadSettings();
+        await unregisterPushToken(currentAuth, apiUrl, pushTokenRef.current);
+      } catch {
+        // Ignore push cleanup errors on logout
+      }
+    }
+    pushTokenRef.current = null;
     await clearAuthSession();
   }
 
