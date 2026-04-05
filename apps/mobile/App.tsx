@@ -28,7 +28,6 @@ import ReviewScreen from './src/screens/ReviewScreen';
 import ComplaintScreen from './src/screens/ComplaintScreen';
 import TicketListScreen from './src/screens/TicketListScreen';
 import TicketDetailScreen from './src/screens/TicketDetailScreen';
-import NotificationsScreen from './src/screens/NotificationsScreen';
 import ChatListScreen from './src/screens/ChatListScreen';
 import ChatScreen from './src/screens/ChatScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
@@ -86,8 +85,10 @@ if (Notifications) {
   });
 }
 
+const NOTIFICATIONS_ENABLED = false;
+
 async function registerPushToken(auth: AuthSession, apiUrl: string): Promise<string | null> {
-  if (!Notifications) return null;
+  if (!NOTIFICATIONS_ENABLED || !Notifications) return null;
   try {
     const projectId =
       (Constants as any)?.easConfig?.projectId
@@ -134,6 +135,7 @@ async function registerPushToken(auth: AuthSession, apiUrl: string): Promise<str
 }
 
 async function unregisterPushToken(auth: AuthSession, apiUrl: string, token?: string | null) {
+  if (!NOTIFICATIONS_ENABLED) return;
   try {
     await fetch(`${apiUrl}/v1/notifications/device-token`, {
       method: 'DELETE',
@@ -155,7 +157,7 @@ type Screen =
   | 'foodDetail' | 'payment'
   | 'allergenDisclosure' | 'deliveryPin'
   | 'review' | 'complaint'
-  | 'notifications' | 'favorites'
+  | 'favorites'
   | 'sellerProfileDetail' | 'sellerProfile' | 'sellerFoods' | 'sellerFoodsManager' | 'sellerLots' | 'sellerOrders' | 'sellerOrderDetail' | 'sellerCompliance' | 'sellerFinance' | 'sellerReviews'
   | 'chatList' | 'chat';
 
@@ -251,7 +253,7 @@ export default function App() {
   // Register push token and notification listeners when auth is set
   useEffect(() => {
     if (!auth) return;
-    if (!Notifications) return;
+    if (!NOTIFICATIONS_ENABLED || !Notifications) return;
 
     loadSettings().then((s) => {
       registerPushToken(auth, s.apiUrl)
@@ -293,7 +295,9 @@ export default function App() {
     if (currentAuth) {
       try {
         const { apiUrl } = await loadSettings();
-        await unregisterPushToken(currentAuth, apiUrl, pushTokenRef.current);
+        if (NOTIFICATIONS_ENABLED) {
+          await unregisterPushToken(currentAuth, apiUrl, pushTokenRef.current);
+        }
       } catch {
         // Ignore push cleanup errors on logout
       }
@@ -586,21 +590,6 @@ export default function App() {
     );
   }
 
-  if (screen === 'notifications') {
-    return (
-      <NotificationsScreen
-        auth={auth}
-        onBack={() => goHome('notifications')}
-        onOpenOrderDetail={(id) => {
-          setSelectedOrderId(id);
-          setOrderDetailBackTarget('home');
-          setScreen('orderDetail');
-        }}
-        onAuthRefresh={setAuth}
-      />
-    );
-  }
-
   if (screen === 'chatList') {
     return (
       <ChatListScreen
@@ -807,7 +796,6 @@ export default function App() {
       initialTab={homeTab}
       onOpenSettings={() => setScreen('settings')}
       onOpenOrders={() => setScreen('orders')}
-      onOpenNotifications={() => setScreen('notifications')}
       onOpenChatList={() => setScreen('chatList')}
       onOpenFavorites={() => setScreen('favorites')}
       onOpenFoodDetail={(food: FoodItem) => { setSelectedFood(food); setScreen('foodDetail'); }}
