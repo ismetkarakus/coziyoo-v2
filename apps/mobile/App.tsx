@@ -710,6 +710,7 @@ export default function App() {
         <SellerHomeScreen
           auth={auth}
           onOpenProfile={() => setScreen('sellerProfileDetail')}
+          onOpenFinance={() => setScreen('sellerFinance')}
           onOpenFoodsManager={(foodId) => {
             if (foodId) {
               setSellerFoodsFromManager(false);

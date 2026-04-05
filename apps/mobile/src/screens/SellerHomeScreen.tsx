@@ -14,6 +14,7 @@ type Props = {
   auth: AuthSession;
   onAuthRefresh?: (session: AuthSession) => void;
   onOpenProfile: () => void;
+  onOpenFinance: () => void;
   onOpenFoodsManager: (foodId?: string) => void;
   onOpenOrder: (orderId: string) => void;
   onSwitchToBuyer?: () => void;
@@ -237,6 +238,7 @@ export default function SellerHomeScreen({
   auth,
   onAuthRefresh,
   onOpenProfile,
+  onOpenFinance,
   onOpenFoodsManager,
   onOpenOrder,
   onSwitchToBuyer,
@@ -642,7 +644,7 @@ export default function SellerHomeScreen({
           <TouchableOpacity style={styles.quickButton} activeOpacity={0.85} onPress={() => onOpenFoodsManager()}>
             <Text style={styles.quickButtonText}>Yemek Yönetimi</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickLpiPill} activeOpacity={0.85} onPress={onOpenProfile}>
+          <TouchableOpacity style={styles.quickLpiPill} activeOpacity={0.85} onPress={onOpenFinance}>
             <Text style={styles.quickButtonText}>Cüzdanım</Text>
           </TouchableOpacity>
         </View>
