@@ -36,6 +36,8 @@ export type SellerProfile = {
   kitchenDescription?: string | null;
   kitchenSpecialties?: string[] | null;
   deliveryRadiusKm?: number | null;
+  deliveryEnabled?: boolean;
+  deliveryTerms?: string | null;
   workingHours?: Array<{ day: string; open: string; close: string; enabled?: boolean }>;
   status?: "incomplete" | "pending_review" | "active";
   defaultAddress?: { title: string; addressLine: string } | null;
@@ -96,6 +98,9 @@ export default function SellerProfileDetailScreen({
   const [addressLine, setAddressLine] = useState(() => getSellerProfileCache()?.defaultAddress?.addressLine?.trim() ?? "");
   const [contactCountryCode, setContactCountryCode] = useState(() => getSellerMeCache()?.countryCode ?? "");
   const [tcKimlikNo, setTcKimlikNo] = useState(() => getSellerMeCache()?.nationalId ?? "");
+  const [deliveryEnabled, setDeliveryEnabled] = useState(() => Boolean(getSellerProfileCache()?.deliveryEnabled));
+  const [deliveryTerms, setDeliveryTerms] = useState(() => getSellerProfileCache()?.deliveryTerms?.trim() ?? "");
+  const [deliveryRadiusKmInput, setDeliveryRadiusKmInput] = useState(() => String(getSellerProfileCache()?.deliveryRadiusKm ?? 3));
   const [idCardFrontUri, setIdCardFrontUri] = useState<string | null>(null);
   const [idCardBackUri, setIdCardBackUri] = useState<string | null>(null);
   const [idCardFrontBase64, setIdCardFrontBase64] = useState<string | null>(null);
@@ -192,6 +197,9 @@ export default function SellerProfileDetailScreen({
       setContactDob("");
       setCityDistrict(String(loaded?.defaultAddress?.title ?? "").trim());
       setAddressLine(String(loaded?.defaultAddress?.addressLine ?? "").trim());
+      setDeliveryEnabled(Boolean(loaded?.deliveryEnabled));
+      setDeliveryTerms(String(loaded?.deliveryTerms ?? "").trim());
+      setDeliveryRadiusKmInput(String(loaded?.deliveryRadiusKm ?? 3));
       setKitchenDescInput(loaded?.kitchenDescription?.trim() ?? "");
       setSpecialties(Array.isArray(loaded?.kitchenSpecialties) ? loaded.kitchenSpecialties : []);
 
@@ -487,6 +495,21 @@ export default function SellerProfileDetailScreen({
         title !== currentAddressTitle || line !== currentAddressLine
       );
       const hasProfileUpdate = Object.keys(payload).length > 0;
+      const normalizedDeliveryRadius = Number(deliveryRadiusKmInput || 0);
+      if (!Number.isFinite(normalizedDeliveryRadius) || normalizedDeliveryRadius <= 0) {
+        Alert.alert("Hata", "Teslimat yarıçapı 0'dan büyük bir sayı olmalı.");
+        setContactSaving(false);
+        return;
+      }
+      const sellerProfilePayload = {
+        deliveryEnabled,
+        deliveryTerms: deliveryTerms.trim(),
+        deliveryRadiusKm: normalizedDeliveryRadius,
+      };
+      const hasSellerProfileUpdate =
+        deliveryEnabled !== Boolean(profile?.deliveryEnabled) ||
+        deliveryTerms.trim() !== String(profile?.deliveryTerms ?? "").trim() ||
+        normalizedDeliveryRadius !== Number(profile?.deliveryRadiusKm ?? 3);
       const hasIdCardImages = Boolean(idCardFrontBase64 || idCardBackBase64);
       if (hasAddressInput) {
         if (!title || !line) {
@@ -506,7 +529,7 @@ export default function SellerProfileDetailScreen({
           return;
         }
       }
-      if (!hasProfileUpdate && !hasAddressUpdate && !hasIdCardImages) {
+      if (!hasProfileUpdate && !hasAddressUpdate && !hasSellerProfileUpdate && !hasIdCardImages) {
         setIsEditModalOpen(false);
         setContactSaving(false);
         return;
@@ -530,6 +553,17 @@ export default function SellerProfileDetailScreen({
           setCurrentAuth(nextSession);
           onAuthRefresh?.(nextSession);
           await saveAuthSession(nextSession);
+        }
+      }
+
+      if (hasSellerProfileUpdate) {
+        const sellerProfileRes = await authedFetch("/v1/seller/profile", baseUrl, {
+          method: "PUT",
+          body: JSON.stringify(sellerProfilePayload),
+        });
+        const sellerProfileResponse = await readResponsePayload(sellerProfileRes);
+        if (!sellerProfileRes.ok || sellerProfileResponse.json === null) {
+          throw new Error(responseErrorMessage(sellerProfileRes, sellerProfileResponse, "Teslimat ayarları kaydedilemedi"));
         }
       }
 
@@ -702,6 +736,13 @@ export default function SellerProfileDetailScreen({
             </View>
           </View>
 
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Teslimat Ayarı</Text>
+            <InfoRow label="Teslimat" value={deliveryEnabled ? "Açık" : "Kapalı"} />
+            <InfoRow label="Yarıçap" value={deliveryRadiusKmInput?.trim() ? `${deliveryRadiusKmInput} km` : "—"} />
+            <InfoRow label="Koşullar" value={deliveryTerms || "Henüz eklenmedi"} />
+          </View>
+
           {/* Mutfak Bilgileri */}
           <View style={styles.card}>
             <View style={styles.profileEditCardHeader}>
@@ -843,6 +884,43 @@ export default function SellerProfileDetailScreen({
                 value={addressLine}
                 onChangeText={setAddressLine}
                 placeholder="Örn: Rıhtım Cd. No:12, Kadıköy"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+                multiline
+              />
+
+              <Text style={styles.modalLabel}>Teslimat ayarı</Text>
+              <TouchableOpacity
+                style={[styles.deliveryToggleCard, deliveryEnabled && styles.deliveryToggleCardActive]}
+                activeOpacity={0.85}
+                onPress={() => setDeliveryEnabled((prev) => !prev)}
+              >
+                <View style={styles.deliveryToggleCopy}>
+                  <Text style={styles.deliveryToggleTitle}>{deliveryEnabled ? "Teslimat açık" : "Teslimat kapalı"}</Text>
+                  <Text style={styles.deliveryToggleSubtitle}>
+                    {deliveryEnabled ? "Sipariş bazında teslimat teklif edebilirsin." : "Siparişler varsayılan olarak Gel Al kalır."}
+                  </Text>
+                </View>
+                <View style={[styles.deliveryTogglePill, deliveryEnabled && styles.deliveryTogglePillActive]}>
+                  <View style={[styles.deliveryToggleKnob, deliveryEnabled && styles.deliveryToggleKnobActive]} />
+                </View>
+              </TouchableOpacity>
+
+              <Text style={styles.modalLabel}>Teslimat yarıçapı (km)</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={deliveryRadiusKmInput}
+                onChangeText={setDeliveryRadiusKmInput}
+                keyboardType="numeric"
+                placeholder="Örn: 3"
+                placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
+              />
+
+              <Text style={styles.modalLabel}>Teslimat koşulları</Text>
+              <TextInput
+                style={[styles.modalInput, styles.modalAddressInput]}
+                value={deliveryTerms}
+                onChangeText={setDeliveryTerms}
+                placeholder="Örn: 3 km içi, apartman kapısına teslim, akşam 21:00'e kadar."
                 placeholderTextColor={MODAL_PLACEHOLDER_COLOR}
                 multiline
               />
@@ -1159,6 +1237,55 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     paddingTop: 10,
     paddingBottom: 10,
+  },
+  deliveryToggleCard: {
+    backgroundColor: "#E7E6E4",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#C7C7C7",
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  deliveryToggleCardActive: {
+    borderColor: "#3F855C",
+    backgroundColor: "#EDF7F0",
+  },
+  deliveryToggleCopy: {
+    flex: 1,
+  },
+  deliveryToggleTitle: {
+    color: "#1F1F1F",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  deliveryToggleSubtitle: {
+    color: "#5C5B57",
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  deliveryTogglePill: {
+    width: 48,
+    height: 28,
+    borderRadius: 999,
+    backgroundColor: "#CFC9C1",
+    padding: 3,
+    justifyContent: "center",
+  },
+  deliveryTogglePillActive: {
+    backgroundColor: "#3F855C",
+  },
+  deliveryToggleKnob: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#fff",
+  },
+  deliveryToggleKnobActive: {
+    alignSelf: "flex-end",
   },
   idCardRow: {
     flexDirection: "row",
