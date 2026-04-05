@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   },
   withdrawBtnText: { color: "#FFFFFF", fontWeight: "700", fontSize: 12 },
 
-  sectionTitle: { color: "#2E241C", fontSize: 20, fontWeight: "800", marginTop: 6 },
+  sectionTitle: { color: "#2E241C", fontSize: 20, fontWeight: "800", marginTop: 6, textAlign: "center" },
   statsRow: { flexDirection: "row", gap: 6, paddingHorizontal: 6 },
   statCard: {
     flex: 1,
