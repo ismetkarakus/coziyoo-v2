@@ -298,8 +298,8 @@ export default function SellerFinanceScreen({ auth, onBack, onAuthRefresh }: Pro
             style={[styles.tabBtn, activeTab === "withdraw" && styles.tabBtnActive]}
             onPress={() => setActiveTab("withdraw")}
           >
-            <Ionicons name="cash-outline" size={12} color={activeTab === "withdraw" ? "#FFFFFF" : "#2E241C"} />
-            <Text style={[styles.tabText, activeTab === "withdraw" && styles.tabTextActive]}>Para Çek</Text>
+            <Ionicons name="card-outline" size={12} color={activeTab === "withdraw" ? "#FFFFFF" : "#2E241C"} />
+            <Text style={[styles.tabText, activeTab === "withdraw" && styles.tabTextActive]}>Kart Detaylarım</Text>
           </TouchableOpacity>
         </View>
 
