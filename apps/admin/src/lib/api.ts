@@ -1,7 +1,9 @@
 import { getTokens, setTokens, setAdmin } from "./auth";
 import type { ApiError } from "../types/core";
 
-export const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "";
+export const API_BASE = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "")
+  .trim()
+  .replace(/\/+$/, "");
 
 export let refreshInFlight: Promise<boolean> | null = null;
 
