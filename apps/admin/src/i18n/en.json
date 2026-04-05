@@ -17,6 +17,7 @@
     "management": "Management",
     "salesCommissionSettings": "Sales Commission Setting",
     "testScenarios": "Test Scenarios",
+    "testNotifications": "Test Notifications",
     "security": "Security"
   },
   "actions": {
@@ -617,6 +618,33 @@
     "safetyTitle": "Safe test mode",
     "safetyText": "This page is guidance-only and does not mutate data by itself. Run write scenarios on demo/staging data.",
     "tipText": "Tip: Seed demo data from Management menu, then execute scenarios in order."
+  },
+  "testNotifications": {
+    "title": "Test Notifications",
+    "subtitle": "Pick a buyer or seller and send a remote test notification from admin panel.",
+    "formTitle": "Notification Form",
+    "audienceLabel": "Audience",
+    "audienceBuyer": "Buyer",
+    "audienceSeller": "Seller",
+    "searchLabel": "User Search",
+    "searchPlaceholder": "Search by name, e-mail or user ID",
+    "titleLabel": "Notification Title",
+    "bodyLabel": "Notification Body",
+    "selectLabel": "Select",
+    "userNameLabel": "User",
+    "userEmailLabel": "E-mail",
+    "userStatusLabel": "Status",
+    "loadingUsers": "Loading users...",
+    "noUsers": "No users found.",
+    "sendCta": "Send Test Notification",
+    "sending": "Sending...",
+    "usersLoadFailed": "Failed to load users.",
+    "selectUserRequired": "Please select a target user.",
+    "fillFieldsRequired": "Title and body are required.",
+    "sendFailed": "Failed to send test notification.",
+    "sendSuccess": "Test notification sent.",
+    "lastResultTitle": "Last Send Result",
+    "activeTokenCountLabel": "Active device token count"
   },
   "salesCommissionSettings": {
     "title": "Sales Commission Setting",

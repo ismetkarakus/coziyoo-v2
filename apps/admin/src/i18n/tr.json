@@ -17,6 +17,7 @@
     "management": "Yönetim",
     "salesCommissionSettings": "Satış Komisyon Ayarı",
     "testScenarios": "Test Senaryoları",
+    "testNotifications": "Test Bildirimleri",
     "security": "Güvenlik"
   },
   "actions": {
@@ -617,6 +618,33 @@
     "safetyTitle": "Güvenli test modu",
     "safetyText": "Bu sayfa yalnızca senaryo rehberidir; kendi başına veri güncellemez. Senaryolardaki yazma işlemlerini demo/staging verisi üzerinde çalıştırın.",
     "tipText": "İpucu: Management menüsünden önce demo veri ekleyip sonra bu senaryoları sırayla uygulayın."
+  },
+  "testNotifications": {
+    "title": "Test Bildirimleri",
+    "subtitle": "Admin panelden bir alıcı veya satıcı seçip uzaktan test bildirimi gönder.",
+    "formTitle": "Bildirim Formu",
+    "audienceLabel": "Hedef Kitle",
+    "audienceBuyer": "Alıcı",
+    "audienceSeller": "Satıcı",
+    "searchLabel": "Kullanıcı Ara",
+    "searchPlaceholder": "İsim, e-posta veya kullanıcı ID ile ara",
+    "titleLabel": "Bildirim Başlığı",
+    "bodyLabel": "Bildirim Mesajı",
+    "selectLabel": "Seç",
+    "userNameLabel": "Kullanıcı",
+    "userEmailLabel": "E-posta",
+    "userStatusLabel": "Durum",
+    "loadingUsers": "Kullanıcılar yükleniyor...",
+    "noUsers": "Kullanıcı bulunamadı.",
+    "sendCta": "Test Bildirim Gönder",
+    "sending": "Gönderiliyor...",
+    "usersLoadFailed": "Kullanıcılar yüklenemedi.",
+    "selectUserRequired": "Önce bir kullanıcı seçmelisin.",
+    "fillFieldsRequired": "Başlık ve mesaj alanları zorunlu.",
+    "sendFailed": "Test bildirimi gönderilemedi.",
+    "sendSuccess": "Test bildirimi gönderildi.",
+    "lastResultTitle": "Son Gönderim Sonucu",
+    "activeTokenCountLabel": "Aktif cihaz token sayısı"
   },
   "salesCommissionSettings": {
     "title": "Satış Komisyon Ayarı",

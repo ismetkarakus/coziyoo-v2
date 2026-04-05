@@ -15,12 +15,18 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Coziyoo needs your location to show the nearest available cook for selected dishes.",
         "NSPhotoLibraryUsageDescription": "Coziyoo needs photo library access so you can select a profile picture.",
         "NSPhotoLibraryAddUsageDescription": "Coziyoo may save edited profile photos to your library when needed.",
-        "LSApplicationQueriesSchemes": ["comgooglemaps"],
+        "LSApplicationQueriesSchemes": [
+          "comgooglemaps"
+        ],
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoadsInWebContent": true,
           "NSAllowsLocalNetworking": true
         },
-        "UIBackgroundModes": ["audio", "voip", "remote-notification"]
+        "UIBackgroundModes": [
+          "audio",
+          "voip",
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -49,7 +55,11 @@
       ]
     ],
     "extra": {
-      "apiUrl": "http://localhost:3000"
-    }
+      "apiUrl": "http://localhost:3000",
+      "eas": {
+        "projectId": "cbc63115-75ec-4c47-a938-d72e2473feee"
+      }
+    },
+    "owner": "effocans-organization"
   }
 }
